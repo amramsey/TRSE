@@ -8,12 +8,12 @@
 class BitmapFont
 {
 public:
-    BitmapFont();
+    void Init(int w, int h);
 
     QImage m_image;
 
     void Test();
-    void RenderFont(QString font, int fontSize, QFont::Weight weight, float charsPerLine, float);
+    void RenderFont(QString font, int fontSize, QFont::Weight weight, float charsPerLine, float, float);
 
 
 };

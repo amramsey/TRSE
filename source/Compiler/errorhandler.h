@@ -28,7 +28,7 @@
 #include "source/Compiler/data_pmm.h"
 #include <stdio.h>
 #include <iostream>
-#include <QTextEdit>
+//#include <QTextEdit>
 #include <exception>
 using namespace std;
 
@@ -78,7 +78,7 @@ public:
             s+=" ";
 
         s = s + str + "\n";
-        std::cout << s.toStdString();
+        //std::cout << s.toStdString();
         m_teOut = m_teOut + s;
 
     }

@@ -98,7 +98,7 @@ public:
 
     QMap<GUIType, QString> m_GUIParams;
 
-
+    bool m_silentExport=false;
     int m_width;
     int m_height;
     float m_scaleX = 0.6f;
@@ -109,7 +109,8 @@ public:
     unsigned char m_scale = 2;
     unsigned char m_noColors = 4;
     unsigned char m_minCol = 1;
-
+    float m_importScaleX = 1;
+    float m_importScaleY = 1;
     unsigned int m_currencChar;
 
 

@@ -1,0 +1,78 @@
+program Example3;
+var  
+ 	x1,i,k,l,y1,x2,y2,j,m,g,time,t: byte=0;
+    //music : incsid("music/courier.sid","2");
+    music : incsid("music/fliptape36.sid","2");
+	
+
+@export "images/ok1.flf" "images/ok1.bin" 256
+	image1 : incbin("images/ok1.bin","$20000");    
+
+	@define count 200
+
+	xpos : array[@count] of byte;
+	sz : array[@count] of byte;
+
+
+procedure SetupPalette();
+begin
+	j:=255-time;
+	for i:=1 to 256 do begin
+		setpalette(i,i,time,j);
+	end;
+
+end;
+
+procedure Setup();
+begin
+	for i:=0 to @count do 
+		xpos[i]:=okvc_random;
+	for i:=0 to @count do begin 
+		sz[i]:=okvc_random;
+	end;
+		
+end;
+
+begin
+	initsid(sidfile_1_init);
+	Setup();
+
+	j:=120;
+	m:=0;
+	while(true) offpage do
+	begin	
+		clearscreen(0);
+	//	SetupPalette();
+		j:=sine[time*2]/8;
+		Blit(0,0, sine[time]/8,j, 255,255-j);
+//		SetupPalette();
+		time:=time+2;
+//		ClearScreen(0);
+		t:=time+time;
+		m:=sine[t];
+		m:=m/32;
+		g:=g+1;
+		j:=toColor(m,g,7-m);
+
+//		l:=toColor(m,g,m);
+		for k:=0 to @count do
+		begin
+			x1 := xpos[k];
+			y2 := 0; 
+			y2:=y2+sine[time+x1]/4;
+			y2:=y2+sine[time+k/4]/2+32;
+			xpos[k]:=xpos[k]-1;
+			sz[k]:=sz[k]-2;
+			i:=sine[sz[k]]/8;
+
+			DrawCircleFilled(x1,y2,i,k);
+		end;
+
+		call(sidfile_1_play);
+		
+		WaitForVSync();
+
+	end;
+	Loop();	
+	
+end.

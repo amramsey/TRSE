@@ -1,8 +1,8 @@
 #include "bitmapfont.h"
 
-BitmapFont::BitmapFont()
+void BitmapFont::Init(int w, int h)
 {
-    m_image = QImage(QSize(640,400),QImage::Format_ARGB32);
+    m_image = QImage(QSize(w,h),QImage::Format_ARGB32);
     m_image.fill(QColor(0,0,0,255));
 
 }
@@ -17,13 +17,14 @@ void BitmapFont::Test()
         }
 }
 
-void BitmapFont::RenderFont(QString font, int fontSize, QFont::Weight weight, float charsPerLine, float charsPerCol)
+void BitmapFont::RenderFont(QString font, int fontSize, QFont::Weight weight, float charsPerLine, float charsPerCol, float startChar)
 {
     int i=0;
-    QString data = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    QString data = "";
+    for (int i=0;i<128;i++)
+        data+=(char)(i+startChar);
     float x = 0;
-    float y = 2;
-
+    float y = 0;
     float dx = m_image.width()/(float)charsPerLine;
     float dy = charsPerCol;
     m_image.fill(QColor(0,0,0,255));
@@ -34,16 +35,17 @@ void BitmapFont::RenderFont(QString font, int fontSize, QFont::Weight weight, fl
 
     p.setFont(QFont(font, fontSize, weight));
     int cnt = 0;
-    float cx = dx/2-  fontSize/2;
-    float cy = dy/2-  fontSize/2;
+//    float cx = dx/2-  fontSize/2;
+  //  float cy = dy/2-  fontSize/2;
 //    exit(1);
     for (int i=0;i<data.length();i++) {
-        p.drawText(QRect(x+cx, y+cy,fontSize*1, fontSize*1.5), Qt::AlignCenter,QString(data[i]));
+//        p.drawText(QRect(x, y,fontSize*2, fontSize*2.0), Qt::AlignVCenter | Qt::AlignHCenter,QString(data[i]));
+        p.drawText(QRect(x, y,fontSize*2, fontSize*2.0), Qt::AlignLeft,QString(data[i]));
         x=x+dx;
         if (++cnt==charsPerLine) {
             cnt=0;
             x=0;
-            y=y+dy*2;
+            y=y+dy;
         }
     }
 

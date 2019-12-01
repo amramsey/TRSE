@@ -95,6 +95,18 @@ void Methods6502::Assemble(Assembler *as, AbstractASTDispatcher* dispatcher) {
             as->Asm("sta $01");
 
     }
+    if (Command("strtolower"))
+        StrToLower(as,true);
+    if (Command("strtoupper"))
+        StrToLower(as,false);
+    if (Command("strcmp"))
+        StrCmp(as);
+    if (Command("strsplit"))
+        StrSplit(as);
+    if (Command("strgetfromindex"))
+        StrGetFromIndex(as);
+
+
     /*
      *
      *  OK64 methods
@@ -103,12 +115,28 @@ void Methods6502::Assemble(Assembler *as, AbstractASTDispatcher* dispatcher) {
      *
      *
      * */
+    if (Command("ResetFileList"))
+        CallOKVC(as,0,9);
+    if (Command("ReadNextFile"))
+        CallOKVC(as,0,10);
+
+    if (Command("fmul"))
+        CallOKVC(as,2,15);
 
     if (Command("DrawPixel")) {
         CallOKVC(as,3,1);
     }
+    if (Command("SetDefaultPalette")) {
+        CallOKVC(as,0,14);
+    }
+    if (Command("DrawRect")) {
+        CallOKVC(as,5,8);
+    }
     if (Command("drawCircleFilled")) {
         CallOKVC(as,4,4);
+    }
+    if (Command("drawPoly")) {
+        CallOKVC(as,7,12);
     }
 
     if (Command("DrawLine")) {
@@ -144,8 +172,17 @@ void Methods6502::Assemble(Assembler *as, AbstractASTDispatcher* dispatcher) {
     if (Command("setPalette")) {
         CallOKVC(as,4,5);
     }
+    if (Command("loadfile")) {
+        CallOKVC(as,0,11);
+    }
+    if (Command("memcpyokvc")) {
+        CallOKVC(as,8,13);
+    }
     if (Command("blit")) {
         CallOKVC(as,6,6);
+    }
+    if (Command("printchar")) {
+        CallOKVC(as,4,7);
     }
 
     /*
@@ -195,6 +232,22 @@ void Methods6502::Assemble(Assembler *as, AbstractASTDispatcher* dispatcher) {
         PointToVera(as,0x0F4000,true);
         LoadVar(as,0);
         as->Asm("sta $9F23");
+
+    }
+
+    if (Command("inputIRQ")) {
+
+        NodeProcedure* addr = (NodeProcedure*)dynamic_cast<NodeProcedure*>(m_node->m_params[0]);
+        if (addr==nullptr)
+            ErrorHandler::e.Error("First parameter must be interrupt procedure!", m_node->m_op.m_lineNumber);
+
+        QString name = addr->m_procedure->m_procName;
+
+//        as->Asm("sei");
+        as->Asm("lda     #<"+name);
+        as->Asm("sta     $FFF8");
+        as->Asm("lda     #>"+name);
+        as->Asm("sta     $FFF9");
 
     }
 
@@ -355,6 +408,12 @@ void Methods6502::Assemble(Assembler *as, AbstractASTDispatcher* dispatcher) {
     }
     if (Command("InitKrill")) {
         InitKrill(as);
+    }
+    if (Command("initGetKey")) {
+        as->IncludeFile(":resources/code/c64_keyboard_input.asm");
+    }
+    if (Command("getKey")) {
+        as->Asm("jsr c64_getKey");
     }
 
     if (Command("init_viairq"))
@@ -1072,20 +1131,21 @@ void Methods6502::Poke(Assembler* as)
     }
 
 
-    LoadVar(as,2);
 
-    if (dynamic_cast<NodeVar*>(m_node->m_params[1])!=nullptr ||
-            dynamic_cast<NodeNumber*>(m_node->m_params[1])!=nullptr)
-        LoadVar(as,1, "", "ldx ");
-    else {
-      as->Asm("pha");
-      LoadVar(as,1); // Load expression through a
-
-      as->Asm("tax");
-      as->Asm("pla");
+    if (m_node->m_params[2]->isPure()) {
+        LoadVar(as,1);
+        as->Asm("tax");
+        LoadVar(as,2);
+        SaveVar(as,0,"x");
+        return;
     }
 
-
+    // Generic case
+    LoadVar(as,1);
+    QString zp = as->m_internalZP[2];
+    as->Asm("sta "+zp);
+    LoadVar(as,2);
+    as->Asm("ldx "+zp);
     SaveVar(as,0,"x");
 
 }
@@ -1404,6 +1464,8 @@ void Methods6502::InitMoveto(Assembler *as)
         as->Asm("adc #22");
     if (Syntax::s.m_currentSystem->m_system==AbstractSystem::NES)
         as->Asm("adc #32");
+    if (Syntax::s.m_currentSystem->m_system==AbstractSystem::PET)
+        as->Asm("adc #80");
     as->Asm("bcc sskip");
     as->Asm("inc screenmemory+1");
     as->Label("sskip");
@@ -1814,13 +1876,18 @@ void Methods6502::PrintString(Assembler *as)
 
     if (str!=nullptr)
         as->Label(lbl);
-
-    as->Asm("clc");
-    as->Asm("lda #<" +varName);
-    as->Term("adc ");
-    m_node->m_params[1]->Accept(m_dispatcher);
-    as->Term();
-    as->Asm("ldy #>" +varName);
+    if (var!=nullptr && var->isPointer(as)) {
+        as->Asm("lda "+var->getValue(as));
+        as->Asm("ldy "+var->getValue(as)+"+1");
+    }
+    else {
+        as->Asm("clc");
+        as->Asm("lda #<" +varName);
+        as->Term("adc ");
+        m_node->m_params[1]->Accept(m_dispatcher);
+        as->Term();
+        as->Asm("ldy #>" +varName);
+    }
     as->Asm("sta print_text+0");
     as->Asm("sty print_text+1");
 
@@ -2647,6 +2714,22 @@ void Methods6502::SetVideoMode(Assembler *as)
 
 }
 
+QString Methods6502::checkAndInitStringParameter(Assembler *as, int n)
+{
+    NodeString* str = (NodeString*)dynamic_cast<NodeString*>(m_node->m_params[n]);
+
+    if (str!=nullptr) {
+        QString name= as->NewLabel("new_string_define");
+
+        as->m_tempVars<< name + as->String(str->m_val);
+    //        as->Label(varName + as->String(str->m_val));
+        as->m_term="";
+        as->PopLabel("new_string_define");
+        return name;
+    }
+    return "";
+}
+
 void Methods6502::RightBitShift(Assembler *as, bool isRight)
 {
     as->Comment("Right bitshift");
@@ -2750,7 +2833,6 @@ void Methods6502::PlaySound(Assembler *as)
     }
     QString add = " + " + num->HexValue();
 
-    int SID = 54272;
     LoadVar(as, 1);
     as->Asm("sta 54272 +24" );
     LoadVar(as, 2);
@@ -2978,6 +3060,237 @@ void Methods6502::SetFrequency(Assembler *as)
     //    if (num->m_val==1) {
  //       as->
  //   }
+
+}
+
+void Methods6502::StrToLower(Assembler *as, bool toLower)
+{
+    as->Comment("String To Lower");
+    bool isPointer= m_node->m_params[0]->isPointer(as);
+    QString v = m_node->m_params[0]->getValue(as);
+    QString lbl = as->NewLabel("lower");
+    QString lblEnd = as->NewLabel("lowerEnd");
+    QString lblSkip = as->NewLabel("lowerSkip");
+    QString zp = as->m_internalZP[0];
+
+    QString low = "#$41";
+    QString high = "#$5B";
+    QString add = "#$20";
+
+    if (!toLower) {
+        low = "#$61";
+        high = "#$7B";
+        add = "#$E0";
+    }
+
+    QString x="x";
+    QString p1 = "";
+    QString p2 = "";
+    if (isPointer) {
+        x= "y";
+        p1 ="(";
+        p2 =")";
+    }
+
+    as->Asm("ld"+x+" #0");
+    as->Label(lbl);
+    as->Asm("lda "+p1+v+p2+","+x);
+    as->Asm("cmp #0");
+    as->Asm("beq "+lblEnd);
+    as->Asm("cmp "+low);
+    as->Asm("bcc "+lblSkip);
+    as->Asm("cmp "+high);
+    as->Asm("bcs "+lblSkip);
+    as->Asm("clc");
+    as->Asm("adc "+add);
+    as->Asm("sta "+p1+v+p2+","+x);
+    as->Label(lblSkip);
+    as->Asm("in"+x);
+    as->Asm("jmp "+lbl);
+
+    as->Label(lblEnd);
+
+    as->PopLabel("lower");
+
+    as->PopLabel("lowerEnd");
+    as->PopLabel("lowerSkip");
+}
+
+void Methods6502::StrCmp(Assembler *as)
+{
+    as->Comment("Compare two strings");
+    bool isPointerA= m_node->m_params[0]->isPointer(as);
+    bool isPointerB= m_node->m_params[1]->isPointer(as);
+
+    QString av = checkAndInitStringParameter(as,0);
+    QString bv = checkAndInitStringParameter(as,1);
+
+    if (av=="") av = m_node->m_params[0]->getValue(as);
+    if (bv=="") bv = m_node->m_params[1]->getValue(as);
+
+
+
+    QString lbl = as->NewLabel("strcmp");
+    QString lblFalse = as->NewLabel("endTrue");
+    QString lblTrue = as->NewLabel("endFalse");
+    QString lblFinal = as->NewLabel("endFinal");
+    QString zp = as->m_internalZP[0];
+
+    QString ax="x";
+    QString ap1 = "";
+    QString ap2 = "";
+
+    QString bx="x";
+    QString bp1 = "";
+    QString bp2 = "";
+    if (isPointerA) {
+        ax= "y";
+        ap1 ="(";
+        ap2 =")";
+    }
+    if (isPointerB) {
+        bx= "y";
+        bp1 ="(";
+        bp2 =")";
+    }
+
+    as->Asm("ld"+ax+" #0");
+    if (ax!=bx)
+        as->Asm("ld"+bx+" #0");
+
+    as->Label(lbl);
+    as->Asm("lda "+ap1+av+ap2+","+ax);
+    as->Asm("cmp "+bp1+bv+bp2+","+bx);
+    as->Asm("bne "+lblFalse);
+    as->Asm("cmp #0 ;keep");
+    as->Asm("beq "+lblTrue);
+    as->Asm("in"+ax);
+    if (ax!=bx)
+        as->Asm("in"+bx);
+    as->Asm("jmp "+lbl);
+
+    as->Label(lblFalse);
+    as->Asm("lda #0");
+    as->Asm("jmp "+lblFinal);
+    as->Label(lblTrue);
+    as->Asm("lda #1");
+    as->Label(lblFinal);
+
+    as->PopLabel("strcmp");
+    as->PopLabel("endTrue");
+
+    as->PopLabel("endFalse");
+    as->PopLabel("endFinal");
+}
+
+void Methods6502::StrSplit(Assembler *as)
+{
+    if (!m_node->m_params[0]->isPure())
+        ErrorHandler::e.Error("Parameter 0 is required to be a pure address");
+    if (!m_node->m_params[1]->isPure())
+        ErrorHandler::e.Error("Parameter 1 is required to be a pure address");
+    if (!m_node->m_params[2]->isPure())
+        ErrorHandler::e.Error("Parameter 2 is required to be a pure variable or constant");
+    QString c = m_node->m_params[2]->getValue(as);
+
+    QString s1 = m_node->m_params[0]->getValue(as);
+    QString s2 = m_node->m_params[1]->getValue(as);
+
+    as->Comment("StrSplit");
+    QString lbl = as->NewLabel("loop");
+    QString lblSkip = as->NewLabel("skip");
+    QString lblEnd = as->NewLabel("end");
+    QString lbl2 = as->NewLabel("loopi");
+    as->Asm("ldx #0");
+    as->Asm("ldy #0");
+    as->Label(lbl);
+    as->Asm("lda "+s1+",x");
+    as->Asm("cmp #0; keep");
+    as->Asm("beq "+lblEnd);
+    as->Asm("lda "+s1+",x");
+    as->Asm("cmp "+c);
+    as->Asm("bne "+lblSkip);
+    as->Asm("lda #0"); // String stop
+    as->Label(lblSkip);
+    as->Asm("sta "+s2+",y");
+    as->Asm("iny");
+    as->Label(lbl2);
+    as->Asm("inx");
+/*    as->Asm("lda "+s1+",x");
+    as->Asm("cmp "+c);
+    as->Asm("beq "+lbl2);
+*/
+    as->Asm("jmp "+lbl);
+    as->Label(lblEnd);
+    as->Asm("sta "+s2+",y");
+
+    as->PopLabel("loop");
+    as->PopLabel("loopi");
+    as->PopLabel("skip");
+    as->PopLabel("end");
+
+}
+
+void Methods6502::StrGetFromIndex(Assembler *as)
+{
+//    a, i
+    QString zp = as->m_internalZP[0];
+   // LoadVar(as,0);
+//    m_node->m_params[0]->Accept(m_dispatcher);
+ //   as->Term();
+    LoadAddress(as,0);
+    as->Term();
+    as->Asm("sta "+zp+"+0");
+    as->Asm("sty "+zp+"+1");
+
+    QString lbl = as->NewLabel("cloop");
+    QString lblSkip = as->NewLabel("cskip");
+    QString lblSkipZP = as->NewLabel("cskipzp");
+    QString lblSkipZP2 = as->NewLabel("cskipzp2");
+    QString lblEnd = as->NewLabel("cend");
+    LoadVar(as,1);
+    as->Asm("tax");
+    as->Asm("dex");
+    as->Asm("cpx #255");
+    as->Asm("beq "+lblSkipZP2);
+    as->Asm("ldy #0");
+    as->Label(lbl);
+    as->Asm("lda ("+zp+"),y");
+    as->Asm("cmp #0 ;keep");
+    as->Asm("bne "+lblSkip);
+    as->Asm("dex");
+//    as->Asm("lda #0");
+//    as->Asm("inc $FFe9");
+    as->Asm("cpx #255");
+//    as->Asm("jmp "+lblEnd);
+    as->Asm("beq "+lblEnd);
+
+    as->Label(lblSkip);
+    as->Asm("clc");
+    as->Asm("inc "+zp);
+    as->Asm("bcc " + lblSkipZP);
+    as->Asm("inc "+ zp + " +1");
+    as->Label(lblSkipZP);
+    as->Asm("jmp "+lbl);
+    as->Label(lblEnd);
+
+    // point to NEXT
+    as->Asm("clc");
+    as->Asm("inc "+zp);
+    as->Asm("bcc " + lblSkipZP2);
+    as->Asm("inc "+ zp + " +1");
+    as->Label(lblSkipZP2);
+
+
+    as->Asm("lda "+zp);
+    as->Asm("ldy "+zp+"+1");
+
+//    qDebug() << "Methods LoadAddress ETF";
+    as->PopLabel("cloop");
+    as->PopLabel("cskip");
+    as->PopLabel("cskipzp");
+    as->PopLabel("cskipzp2");
+    as->PopLabel("cend");
 
 }
 
@@ -4018,7 +4331,7 @@ void Methods6502::StartIRQ(Assembler *as)
 {
     as->Comment("StartIRQ");
 
-    if (Syntax::s.m_currentSystem->m_system == AbstractSystem::NES) {
+    if (Syntax::s.m_currentSystem->m_system == AbstractSystem::NES || Syntax::s.m_currentSystem->m_system == AbstractSystem::OK64) {
         as->Asm("pha");
         as->Asm("txa");
         as->Asm("pha");
@@ -4107,7 +4420,7 @@ void Methods6502::StartIRQWedge(Assembler *as)
 void Methods6502::CloseIRQ(Assembler *as, bool isWedge)
 {
     as->Comment("CloseIRQ");
-    if (Syntax::s.m_currentSystem->m_system == AbstractSystem::NES) {
+    if (Syntax::s.m_currentSystem->m_system == AbstractSystem::NES || Syntax::s.m_currentSystem->m_system == AbstractSystem::OK64) {
 
 
         as->Asm("pla");
@@ -4161,7 +4474,7 @@ void Methods6502::CloseIRQ(Assembler *as, bool isWedge)
 
 void Methods6502::DisableNMI(Assembler *as)
 {
-    if (Syntax::s.m_currentSystem->m_system == AbstractSystem::C64) {
+    if (Syntax::s.m_currentSystem->m_system == AbstractSystem::C64 ) {
 
         as->Comment("Hook NMI");
 
@@ -4242,7 +4555,8 @@ as->Label(lbl2);
 void Methods6502::Wait(Assembler *as)
 {
     as->Comment("Wait");
-    LoadVar(as,0,"","ldx ");
+    LoadVar(as,0);
+    as->Asm("tax");
 
     as->Asm("dex");
     as->Asm("bne *-1");
@@ -4266,6 +4580,24 @@ QString Methods6502::BitShiftX(Assembler *as)
     as->PopLabel("shiftbitdone");
     return as->StoreInTempVar("bitmask");
 
+}
+
+void Methods6502::LoadAddress(Assembler *as, int paramNo)
+{
+    Node* node = m_node->m_params[paramNo];
+
+    if (node->isPureNumeric()) {
+        as->Asm("lda " + Util::numToHex(node->getValueAsInt(as)&0xff));
+        as->Asm("ldy " + Util::numToHex((node->getValueAsInt(as)>>8)&0xff));
+        return;
+    }
+    if (node->isPointer(as) && (!node->isArrayIndex())) {
+        as->Asm("lda "+node->getValue(as));
+        as->Asm("ldy "+node->getValue(as)+"+1");
+        return;
+    }
+    as->Asm("lda #<"+node->getValue(as));
+    as->Asm("ldy #>"+node->getValue(as));
 }
 
 
@@ -4946,11 +5278,19 @@ void Methods6502::ClearScreen(Assembler *as)
         as->Asm("sta $00fa+"+shift+",x");
         as->Asm("sta $01f4+"+shift+",x");
         as->Asm("sta $02ee+"+shift+",x");
+        if (Syntax::s.m_currentSystem->m_system==AbstractSystem::PET) {
+            as->Asm("sta $03e8+"+shift+",x");
+            as->Asm("sta $04e2+"+shift+",x");
+            as->Asm("sta $05dc+"+shift+",x");
+            as->Asm("sta $06d6+"+shift+",x");
+
+        }
         as->Asm("bne "+lbl);
 
         as->PopLabel("clearloop");
 
-    } else if (Syntax::s.m_currentSystem->m_system==AbstractSystem::VIC20) {
+    }
+    else if (Syntax::s.m_currentSystem->m_system==AbstractSystem::VIC20) {
 
         QString lbl = as->NewLabel("clearloop");
         QString shift = Util::numToHex(val);
@@ -5061,9 +5401,17 @@ void Methods6502::SetSpriteLoc(Assembler *as)
 
     as->Comment("Set sprite location");
 
-    LoadVar(as,1);
-    LoadVar(as,0,"","ldx ");
-
+    if (m_node->m_params[1]->isPure()) {
+        LoadVar(as,0);
+        as->Asm("tax");
+        LoadVar(as,1);
+    } else {
+        LoadVar(as,0);
+        QString zp = as->m_internalZP[2];
+        as->Asm("sta "+zp);
+        LoadVar(as,1);
+        as->Asm("ldx "+zp);
+    }
 
 //    SaveVar(as,0,"x");
     as->Asm("sta $07f8 + "+bank+",x");

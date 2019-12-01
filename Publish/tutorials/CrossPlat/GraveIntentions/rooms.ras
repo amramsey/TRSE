@@ -1,0 +1,53 @@
+
+      
+/*
+     Firelit room
+     
+       cold 
+       
+*/
+
+items : string= ("A branch        ",@item_branch,16,15,
+				"A book          ", @item_book, 16,16);
+
+//                          x y   bg fg movie   input  roomcolor
+room1 : string = (@roomID, 16,16, 0, 0,   0,      11,   7,
+				 @ccol,@c1,
+				"A firelit room.",@cnl,
+				"Dark shadows dancing on the wall.",@cnl,
+				"Door to the cold night north.",@cnl,
+				@cexit, @dir_N,0);
+     
+
+room2 : string = (@roomID, 16,15, 0, 6, 1,2, 6,
+				 @ccol,@c4,
+//				"Shadow woods.",@cnl,
+				"You are surrounded by the deep night.",@cnl,@cnl,
+				"Branches hiding in shadows.",@cnl,
+				"Door with warm dim lights south.",@cnl,@cnl,
+				@cexit, @dir_SW,0);
+     
+room3 : string = (@roomID, 15,15, 0, 6, 2,2,4,
+				 @ccol,@c5,
+				"Squishy leaves. Moss. Cold breath. ",@cnl,
+				"You are engulfed by darkness.",@cnl,
+				"You see a light to the north.",@cnl,
+				"There is a dim light to the east.",@cnl,
+				@cexit, @dir_NE,0);
+				
+room4 : string = (@roomID, 15,14, 0, 6, 3,2,6, 
+				 @ccol,@c5,
+				"Wooden lodge, frozen planks.",@cnl,
+				"Flickering lights from the window.",@cnl,
+				"The smell of cooked food.",@cnl,
+				@cexit, @dir_NS,0);
+				
+
+room5 : string = (@roomID, 15,13, 0, 6, 4,2,7,
+				 @ccol,@c5,
+				"Fireplace craclking with hot sparks.",@cnl,
+				"Mouth-watering smell of roast.",@cnl,
+				"Muffled sounds from somewhere below.",@cnl,
+				@cexit, @dir_S,0);
+
+      

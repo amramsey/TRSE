@@ -1,0 +1,21 @@
+program Example1;
+var  
+ 	time,j: byte=0;
+	image1 : incbin("images/image1.bin","$20000");    
+
+
+begin
+
+	while(true) offpage do
+	begin	
+		clearscreen(0);
+		j:=sine[time]/8;
+		Blit(0,j, 0,40, 255,180);
+		time:=time+2;
+		
+		WaitForVSync();
+
+	end;
+	Loop();	
+	
+end.

@@ -95,6 +95,13 @@ LColorList::Type LColorList::CharToType(unsigned char c)
 
 }
 
+void LColorList::ConstrainTo(int max)
+{
+    for (int i=0;i<m_list.count();i++) {
+        m_list[i].inUse = i<=max;
+    }
+}
+
 void LColorList::SetGreyscale(QVector3D base, bool inverted)
 {
     for (int i=0;i<m_list.count();i++) {
@@ -233,11 +240,11 @@ void LColorList::fromArray(QByteArray &d)
 {
     int size = (uchar)d[0];
     int shift = 1;
-    qDebug() << size;
+  //  qDebug() << size;
     if (size==0) {
         size = 256;
         shift = 0;
-        qDebug() << "HERE";
+//        qDebug() << "HERE";
     }
     m_list.clear();
  //    setNoBitplanes(size);
@@ -463,6 +470,25 @@ void LColorList::InitCGA2_HIGH()
     m_list.append(LColor(QColor(0xff,0xff,0x55),"Brown"));
 }
 
+void LColorList::LoadFromFile(QString fileName)
+{
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly)) {
+        return;
+    }
+    QByteArray blob = file.readAll();
+    m_list.clear();
+    for (int i=0;i<blob.size()/3;i++) {
+        m_list.append(LColor(QColor((unsigned char)blob[3*i],
+                             (unsigned char)blob[3*i+1],
+                             (unsigned char)blob[3*i+2]),"Color"+QString::number(i)));
+//        qDebug() << "WHOO "<<i;
+
+    }
+    file.close();
+
+}
+
 QColor LColorList::getClosestColor(QColor col, int& winner)
 {
     float d = 1E20;
@@ -513,8 +539,9 @@ void LColorList::FillComboBox(QComboBox *cmb)
 int LColorList::getIndex(QColor c)
 {
     for (int i=0;i<m_list.count();i++) {
-//        qDebug() << "   Testing: " << c << m_list[i].color;
+        qDebug() << "   Testing: " << c << m_list[i].color;
         if (m_list[i].color == c) {
+//            qDebug() << "found" << i <<  c << m_list[i].color;
             return i;
         }
     }

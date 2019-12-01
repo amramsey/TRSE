@@ -114,6 +114,7 @@ void Parser::InitBuiltinFunctions()
             Syntax::s.m_currentSystem->m_system == AbstractSystem::C128 ||
             Syntax::s.m_currentSystem->m_system == AbstractSystem::PLUS4 ||
             Syntax::s.m_currentSystem->m_system == AbstractSystem::NES ||
+            Syntax::s.m_currentSystem->m_system == AbstractSystem::PET ||
             Syntax::s.m_currentSystem->m_system == AbstractSystem::OK64 ||
             Syntax::s.m_currentSystem->m_system == AbstractSystem::X16 ||
             Syntax::s.m_currentSystem->m_system == AbstractSystem::VIC20 ||
@@ -134,6 +135,7 @@ void Parser::InitBuiltinFunctions()
         if (Node::flags.contains("div8"))
             InitBuiltinFunction(QStringList()<< "", "init8x8div");
 
+        InitBuiltinFunction(QStringList()<< "getkey(", "initgetkey");
         InitBuiltinFunction(QStringList()<< "rand(", "initrandom","init_random_call");
         InitBuiltinFunction(QStringList()<< "random(", "initrandom256");
 
@@ -510,6 +512,41 @@ void Parser::RemoveComments()
 
     //qDebug() << m_lexer->m_text;
 
+}
+
+bool Parser::PreprocessIncludeFiles()
+{
+    m_lexer->Initialize();
+    m_lexer->m_ignorePreprocessor = false;
+    m_acc = 0;
+    bool done = true;
+    m_currentToken = m_lexer->GetNextToken();
+    //m_preprocessorDefines.clear();
+    while (m_currentToken.m_type!=TokenType::TEOF) {
+        if (m_currentToken.m_type == TokenType::PREPROCESSOR) {
+            if (m_currentToken.m_value.toLower()=="include") {
+
+//                QString str = m_currentToken.m_value;
+                Eat(TokenType::PREPROCESSOR);
+                QString name = m_currentToken.m_value;
+                QString filename =(m_currentDir +"/"+ m_currentToken.m_value);
+                filename = filename.replace("//","/");
+                QString text = m_lexer->loadTextFile(filename);
+                int ln=m_lexer->getLineNumber(m_currentToken.m_value)+m_acc;
+                m_lexer->m_text.insert(m_lexer->m_pos, text);
+                int count = text.split("\n").count();
+                m_lexer->m_includeFiles.append(
+                            FilePart(name,ln, ln+ count, ln-m_acc,ln+count-m_acc,count));
+                m_acc-=count-1;
+                done = false;
+                Eat(TokenType::STRING);
+            }
+        }
+        Eat();
+//        qDebug() << m_currentToken.m_value;
+
+    }
+    return done;
 }
 
 
@@ -949,14 +986,13 @@ void Parser::Preprocess()
     //m_preprocessorDefines.clear();
     while (m_currentToken.m_type!=TokenType::TEOF) {
         if (m_currentToken.m_type == TokenType::PREPROCESSOR) {
-            if (m_currentToken.m_value.toLower()=="include") {
+/*            if (m_currentToken.m_value.toLower()=="include") {
 
 //                QString str = m_currentToken.m_value;
                 Eat(TokenType::PREPROCESSOR);
                 QString name = m_currentToken.m_value;
-                QString filename =(m_lexer->m_path +"/"+ m_currentToken.m_value);
+                QString filename =(m_currentDir +"/"+ m_currentToken.m_value);
                 filename = filename.replace("//","/");
-
                 QString text = m_lexer->loadTextFile(filename);
                 int ln=m_lexer->getLineNumber(m_currentToken.m_value)+m_acc;
                 m_lexer->m_text.insert(m_lexer->m_pos, text);
@@ -966,8 +1002,8 @@ void Parser::Preprocess()
                 m_acc-=count-1;
 
                 Eat(TokenType::STRING);
-            }
-            else if (m_currentToken.m_value.toLower() =="define") {
+            }*/
+            if (m_currentToken.m_value.toLower() =="define") {
                 Eat(TokenType::PREPROCESSOR);
                 QString key = m_currentToken.m_value;
                 Eat();
@@ -1096,8 +1132,19 @@ void Parser::Preprocess()
                     outFile = outFolderShort+"krill_installer.bin";
                     replaceLine += "\n_Installer_Binary: 	incbin (\""+outFile+ "\",$"+QString::number(installerPos,16)+");";
 
-                    for (QString s: m_diskFiles)
-                        replaceLine+= s + ": string=(\""+s.toUpper()+"\");";
+                    for (QString s: m_diskFiles) {
+                        QString var = s;
+                        for (int i=0;i<256;i++) {
+                            QString r = "#P"+QString::number(i)+";";
+                            var = var.replace(r,"");
+//                            s = s.replace(r,QChar(i));
+ //                           s = s.replace(r,"\""  +QString::number(i)  + "\"");
+                        }
+
+                        replaceLine+= var + ": string=(\""+s.toUpper()+"\");";
+
+                    }
+//                    qDebug() << replaceLine;
 
                     // Now load all disk files
 //                    CIniFile paw;
@@ -1108,6 +1155,9 @@ void Parser::Preprocess()
   //                  qDebug() << replaceLine;
 //                    qDebug() << Util::numToHex(loaderPos);
                     QString orgL =  m_lexer->m_lines[ln];
+
+
+
                     m_lexer->m_text.replace(orgL,replaceLine+"\n\t");
                     m_lexer->m_pos-=orgL.count();
 
@@ -1167,6 +1217,10 @@ Node* Parser::Parse(bool removeUnusedDecls, QString param, QString globalDefines
     InitObsolete();
     StripWhiteSpaceBeforeParenthesis(); // TODO: make better fix for this
     InitSystemPreprocessors();
+    bool done = false;
+    //while (!done)
+        done = PreprocessIncludeFiles();
+
     Preprocess();
 //    PreprocessConstants();
     m_pass = 1;
@@ -1179,6 +1233,8 @@ Node* Parser::Parse(bool removeUnusedDecls, QString param, QString globalDefines
     Node::flags.clear();
 
     m_lexer->Initialize();
+//    qDebug() << m_lexer->m_text;
+
     m_lexer->m_ignorePreprocessor = true;
     m_currentToken = m_lexer->GetNextToken();
    /* qDebug() << m_lexer->m_pos;
@@ -1530,12 +1586,12 @@ QVector<Node *> Parser::VariableDeclarations(QString blockName)
                 //qDebug() << sidloc;
             }
 //            exit(1);
-            decl->InitSid(m_lexer->m_path, sidloc, "sid");
+            decl->InitSid(m_currentDir, sidloc, "sid");
         }
         if (typeNode->m_op.m_type == TokenType::INCNSF) {
             int sidloc = 0;
  //           exit(1);
-            decl->InitSid(m_lexer->m_path, sidloc, "nsf");
+            decl->InitSid(m_currentDir, sidloc, "nsf");
         }
     }
 //    return vars;
@@ -1806,14 +1862,22 @@ void Parser::HandleExport()
     LImage* img = LImageIO::Load(inFile);
     if (dynamic_cast<CharsetImage*>(img)!=nullptr) {
         img->m_exportParams["End"] = param;
-
     }
     if (QFile::exists(outFile))
         QFile::remove(outFile);
 
+
+
     QFile file(outFile);
     file.open(QFile::WriteOnly);
+    img->m_silentExport = true;
+    if (dynamic_cast<C64FullScreenChar*>(img)!=nullptr) {
+        C64FullScreenChar* c = dynamic_cast<C64FullScreenChar*>(img);
+        c->ExportMovie(file);
+    }
+    else
     img->ExportBin(file);
+
     file.close();
 
 }

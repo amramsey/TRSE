@@ -39,7 +39,8 @@ macx {
     QMAKE_CXXFLAGS += -openmp
     #LIBS += -openmp
 #    ICON = trse.icns
-    QMAKE_CXXFLAGS += -Ofast
+    QMAKE_CXXFLAGS += -fast
+    LIBS += -L$$PWD/libsOfast
     LIBS += -ldl
     LIBS += -L$$PWD/libs/lua/ -lluamac
 
@@ -334,10 +335,6 @@ HEADERS  += mainwindow.h \
     source/trsedocuments/formfjong.h \
     source/PmmEdit/fjongeditor.h \
     source/LeLib/luascript.h \
-    source/LeLib/objloader/objLoader.h \
-    source/LeLib/objloader/obj_parser.h \
-    source/LeLib/objloader/string_extra.h \
-    source/LeLib/objloader/list.h \
     source/LeLib/objloader/objloader.h \
     source/LeLib/limage/compression.h \
     source/LeLib/limage/limagecga.h \
@@ -395,6 +392,7 @@ RESOURCES += \
 DISTFILES += \
     resources/code/amiga/init_p61_player.s \
     resources/code/amiga/p61-play.i \
+    resources/code/c64_keyboard_input.asm \
     resources/images/OK64.jpg \
     resources/images/OK64.png \
     resources/images/PLUS4.png \

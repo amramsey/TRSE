@@ -50,7 +50,7 @@ public:
     float m_blur = 0;
     QPointF m_scale = QPointF(1,1);
 
-
+    bool isPetscii = false;
     LImageQImage m_input;
     LImageQImage m_work;
     LImageQImage m_output;
@@ -104,6 +104,9 @@ private slots:
     void on_btnImport_2_clicked();
 
     void on_hsDither_sliderMoved(int position);
+
+    void on_hsScaleX_sliderMoved(int position);
+    void on_hsScaleY_sliderMoved(int position);
 
 private:
     Ui::DialogImport *ui;

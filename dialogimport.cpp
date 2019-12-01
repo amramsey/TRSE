@@ -49,6 +49,7 @@ void DialogImport::Initialize(LImage::Type imageType, LColorList::Type colorType
     m_image = LImageFactory::Create(m_imageType, colorType);
     m_image->m_colorList.m_list = img->m_colorList.m_list;
 
+
     LImageVIC20* vic = dynamic_cast<LImageVIC20*>(img);
     if (vic!=nullptr) {
         LImageVIC20* i = dynamic_cast<LImageVIC20*>(m_image);
@@ -58,11 +59,25 @@ void DialogImport::Initialize(LImage::Type imageType, LColorList::Type colorType
     }
     LImageSprites2* sprite = dynamic_cast<LImageSprites2*>(img);
 
+
+
+
+
     if (sprite!=nullptr) {
         m_image->CopyFrom(sprite);
 //        qDebug() << QString::number(sprite->m_items[sprite->m_current].m_header[0]);
 //        qDebug() << "BLOCKS: " << sprite->m_sprites[sprite->m_currencChar].m_blocksWidth;
     }
+
+    C64FullScreenChar* petscii = dynamic_cast<C64FullScreenChar*>(img);
+    if (petscii!=nullptr) {
+        // Start with petscii
+        isPetscii=true;
+        C64FullScreenChar* target = dynamic_cast<C64FullScreenChar*>(m_image);
+        target->CopyFrom(img);
+//        m_image = img;
+    }
+
 
 
     m_image->m_colorList.CreateUI(ui->layoutColors,0);
@@ -70,6 +85,10 @@ void DialogImport::Initialize(LImage::Type imageType, LColorList::Type colorType
     m_image->m_colorList.FillComboBox(ui->cmbBackground);
     m_image->m_colorList.FillComboBox(ui->cmbMC1);
     m_image->m_colorList.FillComboBox(ui->cmbMC2);
+
+    if (isPetscii)
+        ui->cmbMC1->setCurrentIndex(6);
+
 
     //QObject::connect(this, LColorList::colorValueChanged, UpdateOutput);
     connect(&m_image->m_colorList, SIGNAL(colorValueChanged()), this, SLOT(UpdateOutput()));
@@ -88,6 +107,8 @@ void DialogImport::Convert()
   //  qDebug() << m_image->m_width;
     //exit(1);
     m_image->Clear();
+    m_image->m_importScaleX = 1+ (ui->hsScaleX->value()/100.0 - 0.5)*4;
+    m_image->m_importScaleY = 1+ (ui->hsScaleY->value()/100.0 - 0.5)*4;
 //    m_image->setPixel(10,10,1);
     SetColors();
     QVector3D strength = QVector3D(1,1,1);
@@ -113,9 +134,9 @@ void DialogImport::Convert()
 //        chr->set
 
     }
+   // for (int i=0;i<200;i++)
+   //     qDebug() << QColor(m_image->getPixel(rand()%320, rand()%200));
     m_image->ToQImage(m_image->m_colorList,*m_output.m_qImage,1, QPoint(0.0,0.0));
-
-
 
 }
 
@@ -257,10 +278,15 @@ void DialogImport::on_btnImport_2_clicked()
 {
     // Generate font
 //    m_bf.Test();
+    m_bf.Init(m_image->m_width, m_image->m_height);
     m_bf.RenderFont(ui->cmbFonts->currentText(),ui->leFontSize->text().toInt(),QFont::Normal,
                     ui->leFontCharsPerLine->text().toInt(),
-                    ui->leFontCharsPerLColumn->text().toInt());
+                    ui->leFontCharsPerLColumn->text().toInt(),
+                    ui->leStart->text().toInt()
+                    );
     m_input.m_qImage = &m_bf.m_image;
+    int fc = ui->leUseColors->text().toInt();
+    m_image->m_colorList.ConstrainTo(fc);
     SetColors();
     Blur();
 
@@ -271,6 +297,18 @@ void DialogImport::on_btnImport_2_clicked()
 void DialogImport::on_hsDither_sliderMoved(int position)
 {
     Blur();
+    UpdateOutput();
+
+}
+
+void DialogImport::on_hsScaleX_sliderMoved(int position)
+{
+    UpdateOutput();
+
+}
+
+void DialogImport::on_hsScaleY_sliderMoved(int position)
+{
     UpdateOutput();
 
 }

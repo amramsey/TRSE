@@ -353,6 +353,57 @@ void ASTDispather6502::HandleShiftLeftRight(NodeBinOP *node)
     as->PopLabel("lblShift");
 }
 
+void ASTDispather6502::HandleShiftLeftRightInteger(NodeBinOP *node, bool isSimpleAeqAopB)
+{
+    // Not yet implemented
+
+    QString varName = "";
+    if (!isSimpleAeqAopB) {
+        node->m_left->Accept(this);
+        as->Term();
+        varName = as->StoreInTempVar("tempVarShift","word");
+    }
+    else
+        varName = node->m_left->getValue(as);
+
+//    QString cmd = node->m_op.m_type==TokenType::SHR?"lsr":"asl";
+    QString command = "";
+    if (node->m_op.m_type==TokenType::SHR) {
+        command = "\tlsr " + varName +"+1"+ "\n";
+        command += "\tror " + varName+"+0" + "\n";
+    }
+    else {
+        command = "\tasl " + varName +"+0"+ "\n";
+        command += "\trol " + varName+"+1" + "\n";
+    }
+    if (node->m_right->isPureNumeric()) {
+
+        int val = node->m_right->getValueAsInt(as);
+        for (int i=0;i<val;i++)
+            as->Asm(command);
+
+
+    }
+    else {
+        node->m_right->Accept(this);
+        as->Term();
+        as->Asm("tax");
+        QString lbl = as->NewLabel("lblShift");
+        as->Label(lbl);
+        as->Asm(command);
+        as->Asm("dex");
+        as->Asm("cpx #0");
+        as->Asm("bne "+lbl);
+
+        as->PopLabel("lblShift");
+    }
+    if (!isSimpleAeqAopB) {
+        as->Asm("lda "+varName);
+        as->Asm("ldy "+varName +"+1");
+        as->PopTempVar();
+    }
+}
+
 void ASTDispather6502::Mul16x8(Node *node) {
     as->Comment("Mul 16x8 setup");
     as->Asm("");
@@ -543,7 +594,14 @@ void ASTDispather6502::dispatch(NodeBinOP *node)
         return;
     }
     if (node->m_op.m_type==TokenType::SHR || node->m_op.m_type==TokenType::SHL) {
-        HandleShiftLeftRight(node);
+//        bool isSimpleAeqAopB = false;
+  //      if (node->)
+
+
+        if (node->isWord(as))
+            HandleShiftLeftRightInteger(node,false);
+        else
+            HandleShiftLeftRight(node);
         return;
     }
 
@@ -988,8 +1046,8 @@ void ASTDispather6502::dispatch(NodeVarDecl *node)
     }
     else
     if (t->m_op.m_type==TokenType::POINTER) {
-        if (node->m_curMemoryBlock!=nullptr)
-            ErrorHandler::e.Error("Pointers can not be declared within a user-defined memory block :",node->m_op.m_lineNumber);
+        //if (node->m_curMemoryBlock!=nullptr)
+        //    ErrorHandler::e.Error("Pointers can not be declared within a user-defined memory block :",node->m_op.m_lineNumber);
         DeclarePointer(node);
     }else {
         node->m_dataSize=1;
@@ -2157,7 +2215,7 @@ void ASTDispather6502::StoreVariable(NodeVar *node) {
     }
 }
 
-void ASTDispather6502::AssignString(NodeAssign *node) {
+void ASTDispather6502::AssignString(NodeAssign *node, bool isPointer) {
 
     NodeString* right = (NodeString*)dynamic_cast<const NodeString*>(node->m_right);
     NodeVar* left = (NodeVar*)dynamic_cast<const NodeVar*>(node->m_left);
@@ -2171,14 +2229,24 @@ void ASTDispather6502::AssignString(NodeAssign *node) {
     //as->Label(str + "\t.dc \"" + right->m_op.m_value + "\",0");
   //  as->Label(lbl);
 
-    as->Asm("ldx #0");
-    as->Label(lblCpy);
-    as->Asm("lda " + str+",x");
-    as->Asm("sta "+left->getValue(as) +",x");
-    as->Asm("inx");
-    as->Asm("cmp #0 ;keep");  // ask post optimiser to not remove this
-    as->Asm("bne " + lblCpy);
+//    qDebug() << "IS POINTER " << isPointer;
+    if (isPointer) {
+  //      qDebug() << "HERE";
+        as->Asm("lda #<"+str);
+        as->Asm("sta "+left->getValue(as));
+        as->Asm("lda #>"+str);
+        as->Asm("sta "+left->getValue(as)+"+1");
+    }
+    else {
 
+        as->Asm("ldx #0");
+        as->Label(lblCpy);
+        as->Asm("lda " + str+",x");
+        as->Asm("sta "+left->getValue(as) +",x");
+        as->Asm("inx");
+        as->Asm("cmp #0 ;keep");  // ask post optimiser to not remove this
+        as->Asm("bne " + lblCpy);
+    }
   //  as->PopLabel("stringassign");
     as->PopLabel("stringassignstr");
     as->PopLabel("stringassigncpy");
@@ -2316,6 +2384,7 @@ bool ASTDispather6502::isSimpleAeqAOpB16Bit(NodeVar *var, NodeAssign *node)
 
     if (!(rterm->m_op.m_type==TokenType::PLUS || rterm->m_op.m_type==TokenType::MINUS))
         return false;
+//    qDebug()<< rterm->m_right->getValue(as);
 /*    qDebug() << "isSimpleAeqAOpB16Bit" << var->isWord(as) << rterm->m_right->is8bitValue(as) << TokenType::getType(node->m_forceType) ;
 
     qDebug() << "Is pure " <<rterm->m_right->isPure() << " is variable " << variable;
@@ -2324,7 +2393,7 @@ bool ASTDispather6502::isSimpleAeqAOpB16Bit(NodeVar *var, NodeAssign *node)
 */
 
     if (var->isWord(as) &&  rterm->m_right->is8bitValue(as) && !(node->m_forceType==TokenType::INTEGER)) {
-//        qDebug() << "WHOO";
+  //      qDebug() << "WHOO";
         //          qDebug() << "Cont";
 
         //       qDebug() << "ASTDispather6502::isSimpleAeqAOpB16Bit HERE";
@@ -2578,7 +2647,7 @@ QString ASTDispather6502::AssignVariable(NodeAssign *node) {
 
 
     if (num!=nullptr) {
-        as->Comment("Assigning memory location (poke replacement)");
+        as->Comment("Assigning memory location");
         v = new NodeVar(num->m_op); // Create a variable copy
         v->value = num->HexValue();
         //return num->HexValue();
@@ -2597,13 +2666,19 @@ QString ASTDispather6502::AssignVariable(NodeAssign *node) {
 
     if (node->m_left->getType(as)==TokenType::POINTER && v->m_expr==nullptr) {
 
+        if (dynamic_cast<const NodeString*>(node->m_right)) {
+            AssignString(node,node->m_left->isPointer(as));
+            return v->getValue(as);
+
+        }
+
         AssignPointer(node);
         return v->getValue(as);
     }
 
-    if ((NodeString*)dynamic_cast<const NodeString*>(node->m_right))
+    if (dynamic_cast<const NodeString*>(node->m_right))
     {
-        AssignString(node);
+        AssignString(node,node->m_left->isPointer(as));
         return v->getValue(as);
     }
     if (node->m_right==nullptr)

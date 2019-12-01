@@ -1,0 +1,65 @@
+program tutorial_07_sqrt_and_atan;
+var  
+
+	// Some variables
+	x,y,tangent,i,dx,dy : byte;
+	radial : integer;
+
+	
+
+
+procedure RenderScreen();
+begin
+	// could equally well have written "screenmemory:=screen_char_loc;"
+	moveto(0,0,hi(screen_char_loc));
+	// Set cp to point to color memory
+	// 23 rows
+	for y:=0 to screen_height do begin
+		//40 columns
+		for x:=0 to screen_width do begin
+			// calculate delta x and delta y from the center of the screen (20,13)
+			dx:=abs(40-x)/2;
+			dy:=abs(13-y);
+			// Calculate the "tangential" value of dx,dy. Try to plot this value indepenedntly!
+			tangent:=(atan2(40,x,12,y));
+			radial:=(dx*dx+dy*dy);
+			// Calculate the "radial" value of dx,dy. Try to plot this value indepenedntly!
+			// Combine the values to create a spiral. Ideally the (tangent
+			i:=radial/2+tangent;
+			// Ideal, (radial,tangent) should be used to lookup a seamless texture
+			// Fill screen memory with the character value
+			screenmemory[x]:=i;
+			// Fill color data with color value based on tangent
+		end;
+		screenmemory:=screenmemory+screen_width;
+	end;
+end;
+
+procedure ShiftScreenData();
+begin
+	asm("
+		ldx #0
+loop_out:
+		inc $8000,x
+		inc $8100,x
+		inc $8200,x
+		inc $8300,x
+		inc $8400,x
+		inc $8500,x
+		inc $8600,x
+		inc $8700,x
+		inx
+		bne loop_out
+		
+	");		
+
+end;
+
+
+// Main initialization routine
+begin
+	RenderScreen();
+
+	while(true) do
+		ShiftScreenData();
+end.

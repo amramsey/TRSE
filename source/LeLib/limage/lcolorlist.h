@@ -25,11 +25,13 @@
 #include <QColor>
 #include <QVector>
 #include <QString>
+//#ifndef NO_GUI
 #include <QComboBox>
 #include <QPushButton>
+#include <QLayout>
+//#endif
 #include <QIcon>
 #include <QPixmap>
-#include <QLayout>
 #include "source/LeLib/data.h"
 #include <math.h>
 class Metric {
@@ -112,7 +114,7 @@ public:
     QVector<QPushButton*> m_buttonsImport;
     QVector<QPushButton*> m_buttonsEdit;
 
-
+    void ConstrainTo(int max);
     void SetGreyscale(QVector3D base, bool inverted);
     void SetTwoColors(QVector3D base1, QVector3D base2);
     Metric* m_metric = nullptr;
@@ -138,6 +140,7 @@ public:
     void InitCGA2_LOW();
     void InitCGA2_HIGH();
     void UpdateColors();
+    void LoadFromFile(QString fileName);
     QColor getClosestColor(QColor col, int& winner);
 
     void ExportAmigaPalette(QString filename);

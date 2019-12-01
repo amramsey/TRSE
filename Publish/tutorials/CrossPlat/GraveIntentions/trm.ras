@@ -1,0 +1,216 @@
+procedure ReadAnimationHeader();
+begin
+	zp:=@animPos;
+	maxFrames := zp[2];
+	compressionType := zp[3];
+	hasTimeStamps:=zp[4];
+	endChar:=zp[5];
+	skipChar:=zp[6];
+	zp := zp + 7; 
+	curFrame:=0;
+
+end;
+
+
+
+
+
+
+@ifdef PET
+procedure RenderNextPackedFrameCompressionType2(data_width, xpos, ypos:byte);
+var
+   m,i,g0,pass,k,cnt,dw,sw: byte;
+   s : pointer;
+begin
+	
+	m:=0;
+	zp := zp + 1; //inczp(zp,1);
+	i:=zp[0];
+	g0:=0;
+
+	dw:=data_width;
+	sw:=screen_width-dw;
+	
+	for pass:=0 to 2 do begin
+
+		case pass of
+			1:	s:=0;
+			0:	s:=screen_char_loc+xpos;
+		end;
+	cnt:=0;
+	s:=s+screen_width*ypos;
+	while (g0<>endChar) do begin
+	
+		if (zp[0] = skipChar) then begin
+			k:=zp[1];
+			s := s + k; 
+			cnt:=cnt+k;
+			while (cnt>=dw) do
+			begin
+				cnt:=cnt-dw;
+				s:=s+sw;
+			end;
+			zp:=zp+2; //inczp(zp, 2);
+		
+		end
+		else 
+		begin
+			if (pass=0) then
+			s[0]:=zp[0];
+
+			s := s + 1;
+			zp:=zp+1;  //inczp(zp,1);
+			cnt:=cnt+1;
+			while (cnt>=dw) do
+			begin
+				cnt:=cnt-dw;
+				s:=s+sw;
+			end;
+		end;
+		g0:=zp[0];
+
+	end;
+	zp:=zp+1; //inczp(zp,1);
+	g0:=0;
+	end;
+
+	if (hasTimeStamps) then zp:=zp+1;
+
+	inc(curFrame);
+	if (curFrame=maxFrames) then 
+	begin
+		curFrame:=0;
+		zp:=@animPos+7;
+
+	end;
+end;
+
+@endif
+
+@ifdef C64
+procedure RenderNextPackedFrameCompressionType2(data_width, xpos, ypos:byte);
+var
+   m,i,g0,pass,k,cnt,dw,sw: byte;
+   s : pointer;
+begin
+	
+	m:=0;
+	zp := zp + 1; //inczp(zp,1);
+	i:=zp[0];
+	g0:=0;
+
+	dw:=data_width;
+	sw:=screen_width-dw;
+	
+	for pass:=0 to 2 do begin
+		case pass of
+			1:	s:=screen_col_loc+xpos;
+			0:	s:=screen_char_loc+xpos;
+		end;
+	cnt:=0;
+	s:=s+screen_width*ypos;
+	while (zp[0]<>endChar) do begin
+	
+		if (zp[0] = skipChar) then begin
+			k:=zp[1];
+			s := s + zp[1]; 
+			zp:=zp+2; //inczp(zp, 2);
+		
+		end
+		else 
+		begin
+			s[0]:=zp[0];
+			s := s + 1;
+			zp:=zp+1;  //inczp(zp,1);
+		end;
+		g0:=zp[0];
+
+	end;
+	zp:=zp+1; //inczp(zp,1);
+	//g0:=0;
+	end;
+
+	if (hasTimeStamps) then zp:=zp+1;
+
+	inc(curFrame);
+	if (curFrame=maxFrames) then 
+	begin
+		curFrame:=0;
+		zp:=@animPos+7;
+
+	end;
+end;
+
+
+@endif
+
+@ifdef VIC20
+procedure RenderNextPackedFrameCompressionType2(data_width, xpos, ypos:byte);
+var
+   m,i,g0,pass,k,cnt,dw,sw,c,y,x: byte=0;
+   s,p1 : pointer;
+begin
+	
+	m:=0;
+	zp := zp + 1; //inczp(zp,1);
+	i:=zp[0];
+	g0:=0;
+	c:=0;
+	dw:=data_width;
+	sw:=screen_width-dw;
+	for pass:=0 to 2 do begin
+
+		case pass of
+			1:	begin s:=screen_col_loc; end; 
+//			0:	s:=@vicTempScreen+xpos;
+			0:	s:=@vicTempScreen+xpos;
+		end;
+//	s:=s+screen_width*ypos;
+	while (g0<>endChar) do begin
+	
+		if (zp[0] = skipChar) then begin
+			k:=zp[1];
+			s := s + zp[1]; 
+			zp:=zp+2; //inczp(zp, 2);
+		
+		end
+		else 
+		begin
+			if (pass=0) then 
+				s[0]:=zp[0];
+			s := s + 1;
+			zp:=zp+1;  //inczp(zp,1);
+		end;
+		g0:=zp[0];
+
+	end;
+	zp:=zp+1; //inczp(zp,1);
+	g0:=0;
+	end;
+
+	if (hasTimeStamps) then zp:=zp+1;
+
+	inc(curFrame);
+	if (curFrame=maxFrames) then 
+	begin
+		curFrame:=0;
+		zp:=@animPos+7;
+
+	end;
+	
+	p1:=@vicTempScreen;
+	s:=screen_char_loc;
+	for y:=0 to 12 do
+	begin
+		k:=0;
+		for x:=0 to 22 do
+		begin
+			s[x]:=p1[k];
+			k:=k+2;			
+		end;
+		s:=s+22;
+		p1:=p1+40;
+	end;
+
+end;
+@endif

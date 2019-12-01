@@ -243,6 +243,15 @@ void MainWindow::VerifyDefaults()
         m_iniFile.setFloat("memory_analyzer_window_height", 600);
 
 
+    //    qDebug() << m_ini.getString("ok64_emulator");
+   if (!m_iniFile.contains("ok64_emulator") || m_iniFile.getString("ok64_emulator")=="")
+    #ifdef __linux__
+            m_iniFile.setString("ok64_emulator","ok64");
+    #endif
+    #ifdef _WIN32
+        m_iniFile.setString("ok64_emulator","ok64.exe");
+    #endif
+
 
     if (!m_iniFile.contains("optimizer_remove_unused_symbols"))
      m_iniFile.setFloat("optimizer_remove_unused_symbols",0);
@@ -294,7 +303,7 @@ void MainWindow::LoadDocument(QString fileName)
         editor = new FormPaw(this);
     }
     editor->InitDocument(nullptr, &m_iniFile, &m_currentProject.m_ini);
-    editor->m_currentDir = m_currentPath;
+    editor->m_currentDir = m_currentPath+"/";
     editor->m_currentSourceFile = getProjectPath() + "/" + fileName;
     editor->m_currentFileShort = fileName;
     ui->tabMain->addTab(editor, fileName);
@@ -434,8 +443,8 @@ void MainWindow::OpenProjectSettings()
     delete dSettings;
 
     // Set compiler syntax based on system
-    Syntax::s.Init(AbstractSystem::SystemFromString(m_currentProject.m_ini.getString("system")),&m_iniFile, &m_currentProject.m_ini);
-
+//    Syntax::s.Init(AbstractSystem::SystemFromString(m_currentProject.m_ini.getString("system")),&m_iniFile, &m_currentProject.m_ini);
+    LoadProject(m_currentProject.m_filename);
 
 }
 
@@ -863,6 +872,8 @@ void MainWindow::on_actionTRSE_Settings_triggered()
 
     dSettings->exec();
 
+
+
     for (TRSEDocument* doc : m_documents) {
         doc->UpdateColors();
         doc->UpdateFromIni();
@@ -875,6 +886,9 @@ void MainWindow::on_actionTRSE_Settings_triggered()
         SetDarkPalette();
     if (m_iniFile.getdouble("windowpalette")==1)
         QApplication::setPalette(m_defaultPalette);
+
+
+
 }
 
 void MainWindow::on_actionNew_project_triggered()
