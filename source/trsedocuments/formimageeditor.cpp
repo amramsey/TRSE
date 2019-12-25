@@ -33,7 +33,7 @@ FormImageEditor::FormImageEditor(QWidget *parent) :
     ui(new Ui::Formimageeditor)
 {
     ui->setupUi(this);
-    m_toolBox.Initialize(ui->lyToolbox_3);;
+    m_toolBox.Initialize(ui->lyToolbox_3);
 
     UpdatePalette();
     m_grid.Initialize(320,200);
@@ -89,6 +89,8 @@ void FormImageEditor::onImageMouseEvent()
         UpdateSpriteImages();
     if (dynamic_cast<C64FullScreenChar*>(m_work.m_currentImage->m_image)!=nullptr)
         UpdateSpriteImages();
+    if (dynamic_cast<LImageMetaChunk*>(m_work.m_currentImage->m_image)!=nullptr)
+        UpdateSpriteImages();
 //    if (dynamic_cast<LImageCharsetRegular*>(m_work.m_currentImage->m_image)!=nullptr)
   //      updateCharSet();
 
@@ -137,7 +139,8 @@ void FormImageEditor::wheelEvent(QWheelEvent *event)
         m_updateThread.m_zoomCenter = (m_updateThread.m_zoomCenter*t + (1-t)*m_updateThread.m_currentPos);//*(2-2*m_zoom);
         Data::data.redrawOutput = true;
 
-        m_grid.CreateGrid(40,25,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
+//        m_grid.CreateGrid(40,25,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
+        m_grid.CreateGrid(m_work.m_currentImage->m_image->m_charWidthDisplay,m_work.m_currentImage->m_image->m_charHeightDisplay,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
 
     }
     else {
@@ -204,7 +207,7 @@ void FormImageEditor::keyPressEvent(QKeyEvent *e)
         }
 
 
-        FillCMBColors();
+//        FillCMBColors();
 
         updateCharSet();
 
@@ -292,7 +295,7 @@ void FormImageEditor::UpdateImage()
 
 void FormImageEditor::UpdateGrid()
 {
-    m_grid.CreateGrid(40,25,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
+    m_grid.CreateGrid(m_work.m_currentImage->m_image->m_charWidthDisplay,m_work.m_currentImage->m_image->m_charHeightDisplay,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
     m_grid.ApplyToLabel(ui->lblGrid);
 
 }
@@ -313,7 +316,7 @@ void FormImageEditor::Load(QString filename)
 
 
     PrepareImageTypeGUI();
-    if (dynamic_cast<ImageLevelEditor*>(img)!=nullptr || dynamic_cast<C64FullScreenChar*>(img)!=nullptr)
+    if (dynamic_cast<ImageLevelEditor*>(img)!=nullptr || dynamic_cast<C64FullScreenChar*>(img)!=nullptr ||dynamic_cast<LImageMetaChunk*>(img)!=nullptr)
         img->LoadCharset(m_projectIniFile->getString("charset_"+m_currentFileShort),0);
     updateCharSet();
 
@@ -348,6 +351,10 @@ void FormImageEditor::Load(QString filename)
         Messages::messages.DisplayMessage(Messages::messages.OLD_SPRITE_FILE);
     }
 
+//    if (dynamic_cast<LImageNES*>(m_work.m_currentImage->m_image)!=nullptr) {
+     if (m_work.m_currentImage->m_image->getColorType()==LColorList::NES) {
+        on_cmbNesPalette_currentIndexChanged(0);
+    }
 
     onImageMouseEvent();
     updateCharSet();
@@ -477,8 +484,14 @@ void FormImageEditor::UpdatePalette()
     ui->cmbBorderMain_3->setVisible(m_work.m_currentImage->m_image->m_supports.displayForeground);
     ui->layoutColorsEdit_3->setEnabled(m_work.m_currentImage->m_image->m_supports.displayColors);
 
+    ui->cmbBank->setVisible(m_work.m_currentImage->m_image->m_supports.displayBank);
+
+
+    ui->cmbNesPalette->setEnabled(m_work.m_currentImage->m_image->m_supports.nesPalette);
+
     ui->lblTimeStamp->setVisible(m_work.m_currentImage->m_image->m_supports.displayTimestamp);
     ui->leTimeStamp->setVisible(m_work.m_currentImage->m_image->m_supports.displayTimestamp);
+
 
     m_work.m_currentImage->m_image->ApplyColor();
 
@@ -774,6 +787,7 @@ void FormImageEditor::updateCharSet()
 {
     UpdateCurrentMode();
     CharsetImage* charmap = m_work.m_currentImage->m_image->getCharset();
+
     ImageLevelEditor* le = dynamic_cast<ImageLevelEditor*>(m_work.m_currentImage->m_image);
     if (le!=nullptr && charmap==nullptr) {
         Messages::messages.DisplayMessage(Messages::messages.CHARSET_WARNING);
@@ -784,6 +798,7 @@ void FormImageEditor::updateCharSet()
 
     QVector<QPixmap> maps;
     charmap->ToQPixMaps(maps);
+
 
 
 
@@ -806,20 +821,21 @@ void FormImageEditor::updateCharSet()
         }
     }
 */
+    int width = charmap->m_charWidthDisplay;
 //   ui->lstCharMap->setViewMode(QListView::IconMode);
-   ui->lstCharMap->setColumnCount(40);
-   ui->lstCharMap->setRowCount(1+maps.count()/40);
+   ui->lstCharMap->setColumnCount(width);
+   ui->lstCharMap->setRowCount(1+maps.count()/width);
     int cnt=0;
     int j=0;
     int i=0;
     int size=32;
     ui->lstCharMap->setIconSize(QSize(size,size));
-    for (int i=0;i<40;i++) {
+    for (int i=0;i<width;i++) {
         ui->lstCharMap->setColumnWidth(i,size);
         //ui->lstCharMap->setCol
     }
     QStringList lst;
-    for (int i=0;i<40;i++)
+    for (int i=0;i<width;i++)
          lst<<"";
 
     ui->lstCharMap->setHorizontalHeaderLabels(lst);
@@ -841,7 +857,7 @@ void FormImageEditor::updateCharSet()
         cnt++;
         i++;
         kk++;
-        if (i>=40) {
+        if (i>=width) {
             i=0;
             j++;
            // kk+=40-8;
@@ -874,8 +890,8 @@ void FormImageEditor::updateSingleCharSet()
     QPixmap pmap = charmap->ToQPixMap(charmap->m_currencChar);
 
     int kk= 0;
-    int i = charmap->m_currencChar/(int)40;
-    int j = charmap->m_currencChar%40;
+    int i = charmap->m_currencChar/(int)charmap->m_charWidthDisplay;
+    int j = charmap->m_currencChar%(int)charmap->m_charWidthDisplay;
     QTableWidgetItem *itm = ui->lstCharMap->item(i,j);
     if (itm!=nullptr)
         itm->setIcon(pmap);
@@ -950,13 +966,28 @@ void FormImageEditor::PrepareClose()
 
 void FormImageEditor::SetMCColors()
 {
+
+
+
     int a = ui->cmbMC1->currentIndex();
     int b = ui->cmbMC2->currentIndex();
+    int c = ui->cmbBorderMain_3->currentIndex();
     int back = ui->cmbBackgroundMain_3->currentIndex();
 
-    m_work.m_currentImage->m_image->SetColor(back, 0);
-    m_work.m_currentImage->m_image->SetColor(a, 1);
-    m_work.m_currentImage->m_image->SetColor(b, 2);
+    if (!m_ignoreMC) {
+        m_work.m_currentImage->m_image->SetColor(back, 0);
+        m_work.m_currentImage->m_image->SetColor(a, 1);
+        m_work.m_currentImage->m_image->SetColor(b, 2);
+        m_work.m_currentImage->m_image->SetColor(c, 3);
+
+        QVector<int> lst;
+        lst.append(a);
+        lst.append(b);
+        lst.append(c);
+        lst.append(back);
+        m_work.m_currentImage->m_image->ConstrainColours(lst);
+        m_work.m_currentImage->m_image->m_colorList.CreateUI(ui->layoutColorsEdit_3,1);
+    }
 
     updateCharSet();
     emit onImageMouseEvent();
@@ -1225,7 +1256,7 @@ void FormImageEditor::on_lstCharMap_currentItemChanged(QTableWidgetItem *current
     int idx = current->data(Qt::UserRole).toInt();
     m_work.m_currentImage->m_image->SetCurrentType(LImage::WriteType::Character);
    // Data::data.currentColor = idx;
-//    qDebug() << idx << Util::numToHex(idx);
+
     m_work.m_currentImage->m_image->setCurrentChar(idx);
 
     Data::data.Redraw();
@@ -1605,4 +1636,48 @@ void FormImageEditor::on_btnPalette_clicked()
     dc->Initialize(&m_work.m_currentImage->m_image->m_colorList, m_projectPath);
     dc->exec();
     UpdatePalette();
+}
+
+void FormImageEditor::on_cmbBorderMain_3_currentIndexChanged(int index)
+{
+//    SetMCColors();
+
+}
+
+void FormImageEditor::on_cmbMC1_currentIndexChanged(int index)
+{
+
+}
+
+void FormImageEditor::on_cmbBorderMain_3_activated(int index)
+{
+    SetMCColors();
+    emit onImageMouseEvent();
+
+}
+
+void FormImageEditor::on_cmbNesPalette_currentIndexChanged(int index)
+{
+//    m_ignoreMC = true;
+    m_work.m_currentImage->m_image->m_colorList.m_curPal = index;
+    m_ignoreMC = false;
+    int idx = m_work.m_currentImage->m_image->m_colorList.m_curPal*4+1;
+    ui->cmbMC2->setCurrentIndex(m_work.m_currentImage->m_image->m_colorList.m_nesPPU[idx+1]);
+    ui->cmbMC1->setCurrentIndex(m_work.m_currentImage->m_image->m_colorList.m_nesPPU[idx+0]);
+    ui->cmbBorderMain_3->setCurrentIndex(m_work.m_currentImage->m_image->m_colorList.m_nesPPU[idx+2]);
+    ui->cmbBackgroundMain_3->setCurrentIndex(m_work.m_currentImage->m_image->m_colorList.m_nesPPU[0]);
+    m_ignoreMC = false;
+
+
+    SetMCColors();
+
+    emit onImageMouseEvent();
+
+}
+
+void FormImageEditor::on_cmbBank_currentIndexChanged(int index)
+{
+    m_work.m_currentImage->m_image->SetBank(index);
+    updateCharSet();
+
 }

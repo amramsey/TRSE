@@ -33,7 +33,6 @@ void ImageLevelEditor::SetLevel(QPoint f)
         return;
     m_currentLevel = m_levels[f.x() + f.y()*m_meta.m_sizex];
 
-
 //    qDebug() << "Current colors:";
 
     for (int i=0;i<3;i++)
@@ -137,6 +136,8 @@ void ImageLevelEditor::SaveBin(QFile &file)
 
     file.write(m_meta.toHeader());
     int i=0;
+    if (m_levels.count()==0)
+        return;
     CharmapLevel* ll = m_levels[0];
 
     for (CharmapLevel* l : m_levels) {
@@ -191,8 +192,11 @@ void ImageLevelEditor::LoadBin(QFile &file)
 
 */
     Initialize(m_meta);
+    m_width = m_meta.m_width*16;
+    m_height = m_meta.m_height*16;
 /*    qDebug() << "INChardata: " <<m_meta.dataSize();
     qDebug() << "INExtraData: " <<m_meta.m_extraDataSize;*/
+//    qDebug() << " WIDTH " << m_meta.m_width;
     for (CharmapLevel* l : m_levels) {
 
         l->m_CharData = file.read(m_meta.dataSize());
@@ -216,6 +220,8 @@ void ImageLevelEditor::BuildData(QTableWidget *tbl, QStringList header)
         tbl->setColumnWidth(i,55);
     int i=0;
     int j=0;
+    if (m_currentLevel == nullptr)
+        return;
     for (int k=3;k<m_currentLevel->m_ExtraData.count();k++) {
         tbl->setItem(i,j,new QTableWidgetItem(QString::number(m_currentLevel->m_ExtraData[k])));
         if (++i>=size) {
@@ -231,7 +237,8 @@ void ImageLevelEditor::StoreData(QTableWidget *tbl)
 {
     int i=0;
     int j=0;
-
+    if (m_currentLevel==nullptr)
+        return;
     for (int k=3;k<m_currentLevel->m_ExtraData.count();k++) {
         if (tbl->item(i,j)==nullptr)
                 return;
@@ -299,7 +306,7 @@ QVector<QPixmap> ImageLevelEditor::CreateIcons()
 
 bool ImageLevelEditor::PixelToPos(int x, float y, int& pos)
 {
-    if (x>=320 || x<0 || y>=200 || y<0)
+    if (x>=m_width || x<0 || y>=m_height || y<0)
         return false;
 
     x/=16.0;
@@ -310,9 +317,13 @@ bool ImageLevelEditor::PixelToPos(int x, float y, int& pos)
     y=(y-(m_meta.m_starty*0.5-0.01));
     if (y<0) return false;
     if (x<0) return false;
+
     if (x>=m_meta.m_width)
         return false;
 
+//    if (rand()%100>98)
+
+  //  qDebug() <<m_meta.m_width;
 
     pos = x + (int)y*m_meta.m_width;
     if ((pos<0 || pos>=m_meta.dataSize()))
@@ -409,7 +420,8 @@ void ImageLevelEditor::CopyFrom(LImage *mc)
         if (c->m_charset==nullptr)
             return;
 
-
+        m_width = c->m_width;
+        m_height = c->m_height;
         CharmapGlobalData d = c->m_meta;
         //d.m_sizex = 1;
         //d.m_sizey = 1;

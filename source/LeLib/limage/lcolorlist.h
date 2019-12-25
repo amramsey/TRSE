@@ -34,6 +34,7 @@
 #include <QPixmap>
 #include "source/LeLib/data.h"
 #include <math.h>
+#include <QStringLiteral>
 class Metric {
 public:
     virtual float getDistance(QColor& a, QColor& b) = 0;
@@ -51,6 +52,8 @@ class LColor {
 public:
     QColor color;
     bool inUse = true;
+    bool displayList = true;
+  //  int currentIndex; // used for NES and other fixed-palette stuff
     QString name;
     LColor() {}
     LColor(QColor col, QString n) {
@@ -98,15 +101,21 @@ private:
 public:
     QVector<LColor> m_list;
 
-    enum Type{ C64, C64_ORG, CGA1_LOW, CGA1_HIGH, CGA2_LOW, CGA2_HIGH, UNSUPPORTED, TIFF, VIC20, PICO8,OK64,X16 };
+    enum Type{ NES, C64, C64_ORG, CGA1_LOW, CGA1_HIGH, CGA2_LOW, CGA2_HIGH, UNSUPPORTED, TIFF, VIC20, PICO8,OK64,X16 };
 
     Type m_type = Type::C64;
     LColorList();
     ~LColorList();
 
+    QByteArray m_nesPPU;
+    int m_curPal = 0;
+
     LColor& get(int i);
     QColor m_cblack = QColor(0,0,0,255);
     LColor m_black = LColor(m_cblack,"black");
+
+
+    void SetPPUColors(char c1, int idx);
 
     static unsigned char TypeToChar(Type t);
     static Type CharToType(unsigned char c);
@@ -137,6 +146,7 @@ public:
     void InitCGA1_LOW();
     void InitCGA1_HIGH();
     void InitOK64();
+    void InitNES();
     void InitCGA2_LOW();
     void InitCGA2_HIGH();
     void UpdateColors();

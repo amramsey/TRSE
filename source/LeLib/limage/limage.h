@@ -44,6 +44,7 @@ public:
     bool flfSave = false;
     bool flfLoad = false;
     bool asmExport = false;
+    bool nesPalette = false;
     bool koalaExport = false;
     bool koalaImport = false;
     bool movieExport = false;
@@ -59,6 +60,7 @@ public:
     bool displayForeground = true;
     bool displayMC1 = true;
     bool displayMC2 = true;
+    bool displayBank = false;
 
 
 
@@ -74,7 +76,7 @@ public:
     enum Type { QImageBitmap, MultiColorBitmap, HiresBitmap,
                 NotSupported, Tiff, CharMapMulticolor, FullScreenChar, LevelEditor, CharmapRegular, CharMapMultiColorFixed,
               Sprites, VIC20_MultiColorbitmap, Sprites2, CGA, AMIGA320x200, AMIGA320x256,
-                OK64_256x256,X16_640x480};
+                OK64_256x256,X16_640x480, NES, LMetaChunk, LevelEditorNES};
 
 
     enum WriteType { Color, Character };
@@ -98,6 +100,20 @@ public:
 
     QMap<GUIType, QString> m_GUIParams;
 
+    virtual LColorList::Type getColorType() {
+        return m_colorList.m_type;
+    }
+
+
+    int m_charWidthDisplay = 40;
+    int m_charHeightDisplay = 25;
+    int m_currentBank = 0;
+
+    virtual void SetBank(int bnk) {
+        m_currentBank = bnk;
+    }
+
+
     bool m_silentExport=false;
     int m_width;
     int m_height;
@@ -114,6 +130,10 @@ public:
     unsigned int m_currencChar;
 
 
+
+    virtual void ConstrainColours(QVector<int> cols) {
+
+    }
     virtual int GetWidth() {
         return m_width;
     }
@@ -180,12 +200,14 @@ public:
     virtual void SaveBin(QFile &file) = 0;
     virtual void LoadBin(QFile &file) = 0;
 
-    void ApplyColor() {
+    virtual void ApplyColor() {
        SetColor(m_extraCols[0],0);
        SetColor(m_extraCols[1],1);
        SetColor(m_extraCols[2],2);
 
     }
+
+    virtual void SetPalette(int pal) {}
 
     virtual void BuildData(QTableWidget* tbl, QStringList header) {}
     virtual void StoreData(QTableWidget* tbl) {}

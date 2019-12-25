@@ -33,6 +33,8 @@ CharsetImage::CharsetImage(LColorList::Type t) : MultiColorImage(t)
     m_scale = 2;
     m_width = 160;
     m_minCol = 0;
+//    m_data = new PixelChar[m_charWidth*m_charHeight];
+
     Clear();
     m_type = LImage::Type::CharMapMulticolor;
     SetColor(1,1);
@@ -390,9 +392,7 @@ void CharsetImage::ToQPixMaps(QVector<QPixmap> &map)
 {
     map.clear();
     for (int i=0;i<m_charCount;i++) {
-        QImage img = m_data[i].toQImage(64, m_bitMask, m_colorList, m_scale);
-        QPixmap p = QPixmap::fromImage(img);
-        map.append(p);
+        map.append(ToQPixMap(i));
     }
 }
 
@@ -458,6 +458,11 @@ void CharsetImage::setPixel(int x, int y, unsigned int color)
 
 
 
+}
+
+unsigned int CharsetImage::getCharPixel(int pos,  int pal,int x, int y)
+{
+    return 0;
 }
 
 void CharsetImage::RenderEffect(QMap<QString, float> params)
