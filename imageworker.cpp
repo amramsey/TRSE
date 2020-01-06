@@ -26,26 +26,28 @@
 ImageWorker::ImageWorker()
 {
 
-    m_types.append(ImageType("Fake C64 png Palette 1", LImage::Type::QImageBitmap, LColorList::Type::C64));
-    m_types.append(ImageType("Fake C64 png Palette 2", LImage::Type::QImageBitmap, LColorList::Type::C64_ORG));
-    m_types.append(ImageType("CGA png Palette 1", LImage::Type::CGA, LColorList::Type::CGA1_HIGH));
-    m_types.append(ImageType("Amiga 320x256", LImage::Type::AMIGA320x256, LColorList::Type::C64));
-    m_types.append(ImageType("Amiga 320x200", LImage::Type::AMIGA320x200, LColorList::Type::C64));
-    m_types.append(ImageType("C64 MultiColor bitmap", LImage::Type::MultiColorBitmap,LColorList::Type::C64));
-    m_types.append(ImageType("C64 Hires Bitmap", LImage::Type::HiresBitmap,LColorList::Type::C64));
-    m_types.append(ImageType("C64 Multicolor Charmap", LImage::Type::CharMapMulticolor,LColorList::Type::C64));
-    m_types.append(ImageType("C64 Regular Charmap", LImage::Type::CharmapRegular,LColorList::Type::C64));
-    m_types.append(ImageType("Screen animation", LImage::Type::FullScreenChar,LColorList::Type::C64));
-    m_types.append(ImageType("C64 Level Editor", LImage::Type::LevelEditor,LColorList::Type::C64));
-    m_types.append(ImageType("NES Level Editor", LImage::Type::LevelEditorNES,LColorList::Type::NES));
-    m_types.append(ImageType("C64 Sprite Editor", LImage::Type::Sprites2,LColorList::Type::C64));
-    m_types.append(ImageType("VIC20 Multicolor bitmap", LImage::Type::VIC20_MultiColorbitmap,LColorList::Type::VIC20));
-    m_types.append(ImageType("OK64 Image", LImage::Type::OK64_256x256,LColorList::Type::OK64));
-    m_types.append(ImageType("X16 640x480 Image", LImage::Type::X16_640x480,LColorList::Type::X16));
-    m_types.append(ImageType("PICO 8", LImage::Type::QImageBitmap, LColorList::Type::PICO8));
-    m_types.append(ImageType("NES CHR", LImage::Type::NES, LColorList::Type::NES));
-    m_types.append(ImageType("NES Meta chunk editor", LImage::Type::LMetaChunk, LColorList::Type::NES));
-    m_types.append(ImageType("C64 Sprite Editor (deprecated type)", LImage::Type::Sprites,LColorList::Type::C64));
+    m_types.append(ImageType("CGA png Palette 1", "x86",LImage::Type::CGA, LColorList::Type::CGA1_HIGH));
+    m_types.append(ImageType("Amiga 320x256", "amiga",LImage::Type::AMIGA320x256, LColorList::Type::C64));
+    m_types.append(ImageType("Amiga 320x200", "amiga",LImage::Type::AMIGA320x200, LColorList::Type::C64));
+    m_types.append(ImageType("C64 MultiColor bitmap", "c64", LImage::Type::MultiColorBitmap,LColorList::Type::C64));
+    m_types.append(ImageType("C64 Hires Bitmap", "c64",LImage::Type::HiresBitmap,LColorList::Type::C64));
+    m_types.append(ImageType("C64 Multicolor Charmap", "c64",LImage::Type::CharMapMulticolor,LColorList::Type::C64));
+    m_types.append(ImageType("C64 Hires Charmap", "c64",LImage::Type::CharmapRegular,LColorList::Type::C64));
+    m_types.append(ImageType("Screen animation (C64, VIC20, NES etc)", "general",LImage::Type::FullScreenChar,LColorList::Type::C64));
+    m_types.append(ImageType("C64/VIC20 Level Editor", "c64",LImage::Type::LevelEditor,LColorList::Type::C64));
+    m_types.append(ImageType("C64 Sprite Editor", "c64",LImage::Type::Sprites2,LColorList::Type::C64));
+    m_types.append(ImageType("VIC20 Multicolor bitmap", "vic20",LImage::Type::VIC20_MultiColorbitmap,LColorList::Type::VIC20));
+    m_types.append(ImageType("C64/VIC20 Level Editor", "vic20",LImage::Type::LevelEditor,LColorList::Type::C64));
+    m_types.append(ImageType("OK64 Image", "ok64",LImage::Type::OK64_256x256,LColorList::Type::OK64));
+    m_types.append(ImageType("X16 640x480 Image", "x16",LImage::Type::X16_640x480,LColorList::Type::X16));
+    m_types.append(ImageType("PICO 8", "pico-8",LImage::Type::QImageBitmap, LColorList::Type::PICO8));
+    m_types.append(ImageType("NES CHR", "nes",LImage::Type::NES, LColorList::Type::NES));
+    m_types.append(ImageType("NES Meta chunk editor", "nes",LImage::Type::LMetaChunk, LColorList::Type::NES));
+    m_types.append(ImageType("NES Sprite editor", "nes",LImage::Type::SpritesNES, LColorList::Type::NES));
+    m_types.append(ImageType("NES Level Editor", "nes",LImage::Type::LevelEditorNES,LColorList::Type::NES));
+    m_types.append(ImageType("Fake C64 png Palette 1", "c64",LImage::Type::QImageBitmap, LColorList::Type::C64));
+    m_types.append(ImageType("Fake C64 png Palette 2", "c64",LImage::Type::QImageBitmap, LColorList::Type::C64_ORG));
+//    m_types.append(ImageType("C64 Sprite Editor (deprecated type)", LImage::Type::Sprites,LColorList::Type::C64));
 //    m_types.append(ImageType("C64 Multicolor Charmap Fixed Colors", LImage::Type::CharMapMultiColorFixed,LColorList::Type::C64));
 
     /*    m_types.append(ImageType("CGA Palette 1 Lo", LImage::Type::QImageBitmap,LColorList::Type::CGA1_LOW));
@@ -55,7 +57,7 @@ ImageWorker::ImageWorker()
     m_types.append(ImageType("TIFF", LImage::Type::Tiff,LColorList::Type::TIFF));
 */
 
-    New(5,CharmapGlobalData());
+    //New(5,);
 }
 
 ImageWorker::~ImageWorker()
@@ -104,7 +106,6 @@ void ImageWorker::New(LImage *image, QString name)
         qDebug() << "WTF NULLPTR imagetype ";
         return;
     }
-
     m_currentImage = new ImageEdit(image, imageType, name);
     //m_currentImage = new ImageEdit(imageType, "New Image");
     m_images.append(m_currentImage);
@@ -112,23 +113,13 @@ void ImageWorker::New(LImage *image, QString name)
     Data::data.Redraw();
 }
 
-void ImageWorker::New(int image, CharmapGlobalData gd = CharmapGlobalData())
+void ImageWorker::New(LImage* img, int image)
 {
 //    exit(1);
-    m_currentImage = new ImageEdit(&m_types[image], "New Image");
-    if (m_types[image].type==LImage::Type::LevelEditor || m_types[image].type==LImage::Type::LevelEditorNES)
-        dynamic_cast<ImageLevelEditor*>(m_currentImage->m_image)->Initialize(gd);
-    if (m_types[image].type==LImage::Type::VIC20_MultiColorbitmap) {
-        LImageVIC20* lv =  dynamic_cast<LImageVIC20*>(m_currentImage->m_image);
-        lv->SetCharSize(gd.m_width, gd.m_height);
-    }
-    if (m_types[image].type==LImage::Type::FullScreenChar) {
-        C64FullScreenChar* lv =  dynamic_cast<C64FullScreenChar*>(m_currentImage->m_image);
-        lv->SetCharSize(gd.m_width, gd.m_height);
-        lv->DeleteAll();
-        lv->AddNew(gd.m_width, gd.m_height);
-    }
 
+    m_currentImage = new ImageEdit(&m_types[image], "New Image");
+
+    m_currentImage->Initialize(img);
     m_images.append(m_currentImage);
     m_currentImage->m_fileName="";
 

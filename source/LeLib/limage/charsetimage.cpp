@@ -21,6 +21,7 @@
 
 #include "charsetimage.h"
 #include "source/LeLib/util/util.h"
+#include "source/Compiler/syntax.h"
 #include <QKeyEvent>
 
 CharsetImage::CharsetImage(LColorList::Type t) : MultiColorImage(t)
@@ -42,6 +43,8 @@ CharsetImage::CharsetImage(LColorList::Type t) : MultiColorImage(t)
     SetColor(5,3);
 
 
+    if (Syntax::s.m_currentSystem->m_system==AbstractSystem::VIC20)
+        m_colorList.InitVIC20();
 
     m_supports.koalaExport = false;
     m_supports.koalaImport = false;
@@ -52,8 +55,9 @@ CharsetImage::CharsetImage(LColorList::Type t) : MultiColorImage(t)
     m_supports.flfLoad = true;
     m_supports.asmExport = false;
 
-    m_supports.displayColors = true;
+    m_supports.displayColors = false;
     m_supports.displayForeground = false;
+    m_supports.displayMC2 = false;
 
     m_currencChar=0;
     m_currentMode=Mode::FULL_IMAGE;
@@ -90,6 +94,14 @@ int CharsetImage::FindClosestChar(PixelChar p)
 
     }
     return winner;
+}
+
+QString CharsetImage::getMetaInfo()
+{
+    QString txt="A C64 charset is very similar to a multicolor/hires image, with the exception of having no stored ";
+    txt+="colour information. In addition to regular full-screen editing, you can also edit each individual characters, or a grid of 2x2 characters, in either regular or tiled mode. ";
+    txt+="\nWhen exported, a C64 charset of 256 characters will take up 256*8 =2048 bytes, but the export method (either by clicking the button or using the TRSE @export command) allows for exporting fewer characters. ";
+    return txt;
 }
 
 
@@ -168,6 +180,7 @@ uchar CharsetImage::getVariableColor(PixelChar *pc)
 
 void CharsetImage::LoadCharset(QString file, int skipBytes)
 {
+    m_charsetFilename = file;
     MultiColorImage::LoadCharset(file, skipBytes);
     if (m_charset!=nullptr)
         CopyFrom(m_charset);
@@ -398,7 +411,7 @@ void CharsetImage::ToQPixMaps(QVector<QPixmap> &map)
 
 QPixmap CharsetImage::ToQPixMap(int chr)
 {
-    QImage img = m_data[chr].toQImage(64, m_bitMask, m_colorList, m_scale);
+    QImage img = m_data[chr].toQImage(32, m_bitMask, m_colorList, m_scale);
     return QPixmap::fromImage(img);
 
 }
@@ -559,6 +572,11 @@ void CharsetImage::setLimitedPixel(int x, int y, unsigned int color)
 
 //    qDebug() << color;
 
+}
+
+void CharsetImage::onFocus() {
+    if (m_charsetFilename!="")
+        LoadCharset(m_charsetFilename,0);
 }
 
 void CharsetImage::CopyChar()

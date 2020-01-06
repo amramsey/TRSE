@@ -83,12 +83,14 @@ SOURCES += main.cpp\
     source/Compiler/systems/systemok64.cpp \
     source/Compiler/systems/systemplus4.cpp \
     source/LeLib/limage/limagelevelnes.cpp \
+    source/LeLib/limage/limagemetablocksprites.cpp \
     source/LeLib/limage/limagemetachunk.cpp \
     source/LeLib/limage/limagenes.cpp \
     source/LeLib/limage/limageok64.cpp \
     source/LeLib/limage/limagex16.cpp \
     source/PmmEdit/fjonghighlighter.cpp \
     source/dialogexport3d.cpp \
+    source/dialogselectcharset.cpp \
     source/toolbox.cpp \
     source/toolboxitem.cpp \
     source/tutorials.cpp \
@@ -227,12 +229,14 @@ HEADERS  += mainwindow.h \
     source/Compiler/systems/systemok64.h \
     source/Compiler/systems/systemplus4.h \
     source/LeLib/limage/limagelevelnes.h \
+    source/LeLib/limage/limagemetablocksprites.h \
     source/LeLib/limage/limagemetachunk.h \
     source/LeLib/limage/limagenes.h \
     source/LeLib/limage/limageok64.h \
     source/LeLib/limage/limagex16.h \
     source/PmmEdit/fjonghighlighter.h \
     source/dialogexport3d.h \
+    source/dialogselectcharset.h \
     source/toolbox.h \
     source/toolboxitem.h \
     source/tutorials.h \
@@ -369,6 +373,7 @@ FORMS    += mainwindow.ui \
     dialognewimage.ui \
     dialogimport.ui \
     source/dialogexport3d.ui \
+    source/dialogselectcharset.ui \
     source/trsedocuments/formraseditor.ui \
     source/trsedocuments/formimageeditor.ui \
     source/dialogtrsesettings.ui \
@@ -399,6 +404,7 @@ DISTFILES += \
     resources/code/amiga/init_p61_player.s \
     resources/code/amiga/p61-play.i \
     resources/code/c64_keyboard_input.asm \
+    resources/code/vbm/vic20_vbm.asm \
     resources/images/OK64.jpg \
     resources/images/OK64.png \
     resources/images/PLUS4.png \
@@ -582,6 +588,7 @@ DISTFILES += \
     resources/text/help/m/tile.rtf \
     resources/text/help/m/togglebit.rtf \
     resources/text/help/m/topointer.rtf \
+    resources/text/help/m/vbmsetdisplaymode.rtf \
     resources/text/help/m/wait.rtf \
     resources/text/help/m/waitforraster.rtf \
     resources/text/help/m/waitnoraster.rtf \
@@ -589,8 +596,13 @@ DISTFILES += \
     resources/code/amiga/end.s \
     resources/code/amiga/init.s \
     resources/text/help/p/c64.rtf \
+    resources/text/help/p/constants.rtf \
     resources/text/help/p/getting_started.rtf \
+    resources/text/help/p/interrupts.rtf \
     resources/text/help/p/pascal.rtf \
+    resources/text/help/p/screen.rtf \
+    resources/text/help/p/variables.rtf \
+    resources/text/help/p/vbm_vic_bitmap_mode.rtf \
     resources/text/help/p/vic20.rtf \
     resources/text/help/r/and.rtf \
     resources/text/help/r/array.rtf \

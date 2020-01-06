@@ -5,7 +5,6 @@ LImageVIC20::LImageVIC20(LColorList::Type t)  : CharsetImage (t)
 {
     m_width = 88;
     m_height = 184;
-    m_scaleX = 2.5f;
     Clear();
     m_type = LImage::Type::VIC20_MultiColorbitmap;
     m_supports.asmExport = false;
@@ -51,14 +50,20 @@ LImageVIC20::LImageVIC20(LColorList::Type t)  : CharsetImage (t)
     m_exportParams["IncludeColors"] = 1;
 
 
+    m_metaParams.append(new MetaParameter("screen_width","Screen width",20,2,1000));
+    m_metaParams.append(new MetaParameter("screen_height","Screen height",19,2,1000));
+
+
+
 }
 
 
 void LImageVIC20::setMultiColor(bool doSet)
 {
+    m_charWidthDisplay = m_charWidth;
+    m_charHeightDisplay = m_charHeight;
     if (doSet) {
         m_width = m_charWidth*4;
-        m_scaleX = 2.5f;
         m_bitMask = 0b11;
         m_noColors = 4;
         m_scale = 2;
@@ -66,7 +71,6 @@ void LImageVIC20::setMultiColor(bool doSet)
     }
     else {
         m_width = m_charWidth*8;
-        m_scaleX = 1.2f;
         m_bitMask = 0b1;
         m_noColors = 2;
         m_scale = 1;
@@ -164,5 +168,25 @@ void LImageVIC20::ToRaw(QByteArray &arr)
         }
         arr.append(cols);
     }
+}
+
+QString LImageVIC20::getMetaInfo()
+{
+    QString txt="A VIC-20 Bitmap is made up of NxM chars. Colours are severely restricted, with a selection of 3 global colors (background, multicolor 1 and multicolor 2).\n";
+    txt+="In addition to this, you also have 1 available color (0-7) for each 8x8 cell.\n\n";
+    m_charWidth = getMetaParameter("screen_width")->value;
+    m_charHeight = getMetaParameter("screen_height")->value;
+    int chars = m_charWidth*m_charHeight/2;
+    txt+= "Chars (8x16) used: " + QString::number(chars) +"\n";
+    if (chars>192)
+        txt+= "WARNING more than 192 chars! Will be truncated. \n";
+
+    txt+= "Data size: " + QString::number(m_charWidth*m_charHeight*8) + " bytes\n";
+    txt+= "Color size: " + QString::number(m_charWidth*m_charHeight) + " bytes\n";
+    txt+= "Total size: " + QString::number(m_charWidth*m_charHeight*9) + " bytes\n";
+    txt+= "Pixel dimensions " + QString::number(m_charWidth*4) + "x" +QString::number(m_charHeight*8);
+
+
+    return txt;
 }
 

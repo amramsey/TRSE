@@ -30,15 +30,17 @@
 class ImageType {
 public:
     QString name;
+    QString category="";
     LImage::Type type;
     LColorList::Type colorType;
     ImageType() {
 
     }
 
-    ImageType(QString n,LImage::Type t, LColorList::Type colType) {
+    ImageType(QString n,QString cat,LImage::Type t, LColorList::Type colType) {
         type = t;
         name = n;
+        category = cat;
         colorType = colType;
     }
 };
@@ -57,6 +59,7 @@ public:
 
     //LColorList* m_colorList = nullptr;
     void Initialize();
+    void Initialize(LImage* img);
 
     LImage* m_image;
     LImage* m_temp;

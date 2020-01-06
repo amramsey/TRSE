@@ -74,6 +74,8 @@ unsigned char LImage::TypeToChar(LImage::Type t)
         return 17;
     if (t==LevelEditorNES)
         return 18;
+    if (t==SpritesNES)
+        return 19;
 
 
     return 255;
@@ -119,9 +121,20 @@ LImage::Type LImage::CharToType(unsigned char c)
         return LMetaChunk;
     if (c==18)
         return LevelEditorNES;
+    if (c==19)
+        return SpritesNES;
 
     return NotSupported;
 
+}
+
+MetaParameter *LImage::getMetaParameter(QString name)
+{
+    for (MetaParameter* mp: m_metaParams)
+        if (mp->name==name)
+            return mp;
+
+    return nullptr;
 }
 
 void LImage::FloydSteinbergDither(QImage &img, LColorList &colors, bool dither)
@@ -152,7 +165,7 @@ void LImage::FloydSteinbergDither(QImage &img, LColorList &colors, bool dither)
 
 }
 
-void LImage::OrdererdDither(QImage &img, LColorList &colors, QVector3D strength)
+void LImage::OrdererdDither(QImage &img, LColorList &colors, QVector3D strength, float gamma=1.0)
 {
     int height  =min(img.height(), m_height);
     int width  =min(img.width(), m_width);
@@ -170,9 +183,9 @@ void LImage::OrdererdDither(QImage &img, LColorList &colors, QVector3D strength)
             QColor color = QColor(img.pixel(xx,yy));
             int yp = yy + xx%(int)strength.y();
             int xp = xx + yy%(int)strength.z();
-            color.setRed(min(color.red() + bayer4x4(xp % 4,yp % 4),255.0f));
-            color.setGreen(min(color.green() + bayer4x4(xp % 4,yp % 4),255.0f));
-            color.setBlue(min(color.blue() + bayer4x4(xp % 4,yp % 4),255.0f));
+            color.setRed(min((float)pow(color.red(),gamma) + bayer4x4(xp % 4,yp % 4),255.0f));
+            color.setGreen(min((float)pow(color.green(),gamma) + bayer4x4(xp % 4,yp % 4),255.0f));
+            color.setBlue(min((float)pow(color.blue(),gamma) + bayer4x4(xp % 4,yp % 4),255.0f));
 
             int winner = 0;
             QColor newPixel = colors.getClosestColor(color, winner);

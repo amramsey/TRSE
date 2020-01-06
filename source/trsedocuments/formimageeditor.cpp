@@ -26,7 +26,7 @@
 #include <QPushButton>
 #include "source/LeLib/limage/charsetimage.h"
 #include "source/messages.h"
-
+#include "source/dialogselectcharset.h"
 
 FormImageEditor::FormImageEditor(QWidget *parent) :
     TRSEDocument(parent),
@@ -42,6 +42,8 @@ FormImageEditor::FormImageEditor(QWidget *parent) :
     m_grid.ApplyToLabel(ui->lblGrid);
     updateCharSet();
     ui->lblGrid->setVisible(ui->chkGrid->isChecked());
+
+
 /*    ui->lblImage->setMouseTracking(true);
     ui->lblGrid->setMouseTracking(true);
     setMouseTracking(true);
@@ -61,7 +63,7 @@ FormImageEditor::FormImageEditor(QWidget *parent) :
 
     m_updateThread.SetCurrentImage(&m_work, &m_toolBox, getLabelImage());
 
-
+//    setFocusPolicy(Qt::StrongFocus);
 
 
 }
@@ -96,6 +98,7 @@ void FormImageEditor::onImageMouseEvent()
 
     //    updateCharSet();
     updateSingleCharSet();
+//    UpdateGrid();
 }
 
 FormImageEditor::~FormImageEditor()
@@ -138,9 +141,9 @@ void FormImageEditor::wheelEvent(QWheelEvent *event)
         float t = 0.0f;
         m_updateThread.m_zoomCenter = (m_updateThread.m_zoomCenter*t + (1-t)*m_updateThread.m_currentPos);//*(2-2*m_zoom);
         Data::data.redrawOutput = true;
-
+        UpdateGrid();
 //        m_grid.CreateGrid(40,25,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
-        m_grid.CreateGrid(m_work.m_currentImage->m_image->m_charWidthDisplay,m_work.m_currentImage->m_image->m_charHeightDisplay,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
+//        m_grid.CreateGrid(m_work.m_currentImage->m_image->m_charWidthDisplay,m_work.m_currentImage->m_image->m_charHeightDisplay,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
 
     }
     else {
@@ -164,12 +167,19 @@ void FormImageEditor::keyPressEvent(QKeyEvent *e)
             Data::data.forceRedraw = true;
         }
 
+
+
+
         if (!(QApplication::keyboardModifiers() & Qt::ControlModifier)) {
             if (e->key()==Qt::Key_D) {
                 m_updateThread.m_zoomCenter.setX(m_updateThread.m_zoomCenter.x() + 1);
                 emit onImageMouseEvent();
                 Data::data.forceRedraw = true;
                 Data::data.Redraw();
+            }
+            if (e->key()==Qt::Key_C) {
+                OpenSelectCharset();
+                return;
             }
             if (e->key()==Qt::Key_A) {
                 m_updateThread.m_zoomCenter.setX(m_updateThread.m_zoomCenter.x() - 1);
@@ -295,7 +305,12 @@ void FormImageEditor::UpdateImage()
 
 void FormImageEditor::UpdateGrid()
 {
-    m_grid.CreateGrid(m_work.m_currentImage->m_image->m_charWidthDisplay,m_work.m_currentImage->m_image->m_charHeightDisplay,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
+    if (m_work.m_currentImage==nullptr)
+        return;
+
+    m_grid.Initialize(m_updateThread.m_gridScale *m_work.m_currentImage->m_image->m_width,m_updateThread.m_gridScale*m_work.m_currentImage->m_image->m_height);
+//    qDebug() << m_work.m_currentImage->m_image->m_scaleX;
+    m_updateThread.CreateGrid();
     m_grid.ApplyToLabel(ui->lblGrid);
 
 }
@@ -316,9 +331,12 @@ void FormImageEditor::Load(QString filename)
 
 
     PrepareImageTypeGUI();
-    if (dynamic_cast<ImageLevelEditor*>(img)!=nullptr || dynamic_cast<C64FullScreenChar*>(img)!=nullptr ||dynamic_cast<LImageMetaChunk*>(img)!=nullptr)
-        img->LoadCharset(m_projectIniFile->getString("charset_"+m_currentFileShort),0);
-    updateCharSet();
+    if (QFile::exists(m_projectIniFile->getString("charset_"+m_currentFileShort))) {
+        if (dynamic_cast<ImageLevelEditor*>(img)!=nullptr || dynamic_cast<C64FullScreenChar*>(img)!=nullptr ||dynamic_cast<LImageMetaChunk*>(img)!=nullptr)
+            img->LoadCharset(m_projectIniFile->getString("charset_"+m_currentFileShort),0);
+
+        updateCharSet();
+    }
 
     Data::data.redrawFileList = true;
     Data::data.Redraw();
@@ -352,7 +370,7 @@ void FormImageEditor::Load(QString filename)
     }
 
 //    if (dynamic_cast<LImageNES*>(m_work.m_currentImage->m_image)!=nullptr) {
-     if (m_work.m_currentImage->m_image->getColorType()==LColorList::NES) {
+     if (m_work.m_currentImage->m_image->m_type==LImage::NES) {
         on_cmbNesPalette_currentIndexChanged(0);
     }
 
@@ -440,21 +458,27 @@ QLabel* FormImageEditor::getLabelImage()
 
 void FormImageEditor::UpdateCurrentMode()
 {
+    if (m_work.m_currentImage==nullptr)
+        return;
     ui->lblMode->setText(m_work.m_currentImage->m_image->GetCurrentModeString());
 }
 void FormImageEditor::UpdatePalette()
 {
     if (m_work.m_currentImage==nullptr)
         return;
+    if (m_work.m_currentImage->m_image == nullptr)
+        return;
     LColorList* l = &m_work.m_currentImage->m_image->m_colorList;
     //if (m_currentColorList!=l)
     //{
+
+    if (m_work.m_currentImage->m_image->m_supports.displayColors)
         l->CreateUI(ui->layoutColorsEdit_3,1);
-        l->FillComboBox(ui->cmbBackgroundMain_3);
-        l->FillComboBox(ui->cmbBorderMain_3);
-        l->FillComboBox(ui->cmbMC1);
-        l->FillComboBox(ui->cmbMC2);
-        m_currentColorList = l;
+    l->FillComboBox(ui->cmbBackgroundMain_3);
+    l->FillComboBox(ui->cmbBorderMain_3);
+    l->FillComboBox(ui->cmbMC1);
+    l->FillComboBox(ui->cmbMC2);
+    m_currentColorList = l;
     //}
 
     if (m_work.m_currentImage==nullptr)
@@ -491,6 +515,12 @@ void FormImageEditor::UpdatePalette()
 
     ui->lblTimeStamp->setVisible(m_work.m_currentImage->m_image->m_supports.displayTimestamp);
     ui->leTimeStamp->setVisible(m_work.m_currentImage->m_image->m_supports.displayTimestamp);
+    if (!m_work.m_currentImage->m_image->m_supports.displayCmbColors) {
+        ui->cmbMC1->setVisible(false);
+        ui->cmbMC2->setVisible(false);
+        ui->cmbBorderMain_3->setVisible(false);
+        ui->cmbBackgroundMain_3->setVisible(false);
+    }
 
 
     m_work.m_currentImage->m_image->ApplyColor();
@@ -507,6 +537,37 @@ void FormImageEditor::FillCMBColors()
     ui->cmbBackgroundMain_3->setCurrentIndex(m_work.m_currentImage->m_image->m_background);
     ui->cmbMC1->setCurrentIndex(m_work.m_currentImage->m_image->m_extraCols[1]);
     ui->cmbMC2->setCurrentIndex(m_work.m_currentImage->m_image->m_extraCols[2]);
+
+}
+
+void FormImageEditor::focusInEvent(QFocusEvent *)
+{
+}
+
+void FormImageEditor::OpenSelectCharset()
+{
+    if (m_work.m_currentImage->m_image->getCharset()==nullptr)
+        return;
+    DialogSelectCharset* ds = new DialogSelectCharset(m_work.m_currentImage->m_image->getCharset());
+    ds->exec();
+    if (ds->result() == QDialog::Rejected) {
+        return;
+    }
+
+    SelectCharacter(ds->m_char);
+
+    Data::data.Redraw();
+    Data::data.forceRedraw = true;
+    onImageMouseEvent();
+
+
+}
+
+
+
+void FormImageEditor::Reload()
+{
+    m_work.m_currentImage->m_image->onFocus();
 
 }
 
@@ -547,16 +608,13 @@ void FormImageEditor::on_btnExportAsm_clicked()
                                                     tr("Bin (*.bin);"));
 
 
-//    m_work.m_currentImage->m_image->ExportAsm(fileName);
     MultiColorImage* mi = (MultiColorImage*)dynamic_cast<MultiColorImage*>(m_work.m_currentImage->m_image);
 
     if (mi==nullptr)
         return;
 
-    //fileName.remove(".bin");
 
     mi->ExportAsm(fileName);
-    //    mi->ExportRasBin(fileName, "");
 }
 
 void FormImageEditor::on_btnGenerate_clicked()
@@ -785,6 +843,9 @@ void FormImageEditor::on_btnSaveAs_clicked()
 
 void FormImageEditor::updateCharSet()
 {
+    if (m_work.m_currentImage==nullptr)
+        return;
+
     UpdateCurrentMode();
     CharsetImage* charmap = m_work.m_currentImage->m_image->getCharset();
 
@@ -870,6 +931,20 @@ void FormImageEditor::updateCharSet()
 //    ui->lstCharMap->
 //    int size = (ui->lstCharMap->rect().width()-ui->lstCharMap->spacing())/8;
   //  ui->lstCharMap->setIconSize(QSize(size,size));
+
+    ui->lstCharMap->horizontalHeader()->setMinimumSectionSize(1);
+    ui->lstCharMap->verticalHeader()->setMinimumSectionSize(1);
+    for (int i=0;i<ui->lstCharMap->rowCount();i++) {
+         ui->lstCharMap->setRowHeight(i,size);
+        //ui->lstCharMap->setCol
+    }
+    for (int i=0;i<width;i++) {
+        ui->lstCharMap->setColumnWidth(i,size);
+        //ui->lstCharMap->setCol
+
+    }
+    ui->lstCharMap->setShowGrid(false);
+    ui->lstCharMap->verticalHeader()->setVisible(false);
 
     onImageMouseEvent();
 }
@@ -986,7 +1061,8 @@ void FormImageEditor::SetMCColors()
         lst.append(c);
         lst.append(back);
         m_work.m_currentImage->m_image->ConstrainColours(lst);
-        m_work.m_currentImage->m_image->m_colorList.CreateUI(ui->layoutColorsEdit_3,1);
+        if (m_work.m_currentImage->m_image->m_supports.displayColors)
+            m_work.m_currentImage->m_image->m_colorList.CreateUI(ui->layoutColorsEdit_3,1);
     }
 
     updateCharSet();
@@ -1253,11 +1329,8 @@ void FormImageEditor::on_lstCharMap_currentItemChanged(QTableWidgetItem *current
 
     if (current==nullptr)
         return;
-    int idx = current->data(Qt::UserRole).toInt();
-    m_work.m_currentImage->m_image->SetCurrentType(LImage::WriteType::Character);
-   // Data::data.currentColor = idx;
 
-    m_work.m_currentImage->m_image->setCurrentChar(idx);
+    SelectCharacter(current->data(Qt::UserRole).toInt());
 
     Data::data.Redraw();
     Data::data.forceRedraw = true;
@@ -1307,9 +1380,8 @@ void FormImageEditor::on_btnResizeData_clicked()
     if (img==nullptr)
         return;
 
-
     DialogNewImage* dResize = new DialogNewImage(this);
-    dResize->Initialize(m_work.getImageTypes());
+    dResize->Initialize(m_work.m_types);
     dResize->setModal(true);
     dResize->SetResizeMeta(img->m_meta);
 
@@ -1680,4 +1752,14 @@ void FormImageEditor::on_cmbBank_currentIndexChanged(int index)
     m_work.m_currentImage->m_image->SetBank(index);
     updateCharSet();
 
+}
+
+void FormImageEditor::on_cmbNesPalette_activated(int index)
+{
+
+}
+
+void FormImageEditor::on_btnCharSelect_clicked()
+{
+    OpenSelectCharset();
 }

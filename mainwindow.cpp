@@ -823,12 +823,12 @@ void MainWindow::on_actionImage_triggered()
 
     FormImageEditor* editor = new FormImageEditor(this);
     DialogNewImage* dNewFile = new DialogNewImage(this);
-    dNewFile->Initialize(editor->m_work.getImageTypes());
+    dNewFile->Initialize(editor->m_work.m_types);
     dNewFile->setModal(true);
     dNewFile->exec();
     if (dNewFile->retVal!=-1) {
 
-        editor->m_work.New(dNewFile->retVal, dNewFile->m_meta);
+        editor->m_work.New(dNewFile->m_metaImage,dNewFile->retVal);
     } else {
         delete editor;
         delete dNewFile;
@@ -953,6 +953,7 @@ void MainWindow::LoadProject(QString filename)
 
     // Set compiler syntax based on system
     QString system = m_currentProject.m_ini.getString("system");
+    Syntax::s.m_systemString = system;
     Syntax::s.Init(AbstractSystem::SystemFromString(system),&m_iniFile, &m_currentProject.m_ini);
     if (Syntax::s.m_currentSystem->m_system==AbstractSystem::AMIGA)
         Messages::messages.DisplayMessage(Messages::messages.AMIGA_WARNING);

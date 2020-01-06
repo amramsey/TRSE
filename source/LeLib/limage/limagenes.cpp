@@ -36,17 +36,18 @@ LImageNES::LImageNES(LColorList::Type t) : CharsetImage(t)
     m_supports.compressedExport = false;
     m_supports.displayForeground = true;
     m_supports.displayBank = true;
+    m_supports.displayCmbColors = true;
 
     m_GUIParams[btnLoadCharset] ="";
-    m_GUIParams[btn1x1] = "";
-    m_GUIParams[btn2x2] = "";
-    m_GUIParams[btn2x2repeat] = "";
-    m_GUIParams[btnCopy] = "";
-    m_GUIParams[btnPaste] = "";
-    m_GUIParams[btnFlipH] = "";
-    m_GUIParams[btnFlipV] = "";
+    m_GUIParams[btn1x1] = "8x8";
+    m_GUIParams[btn2x2] = "16x16";
+    m_GUIParams[btn2x2repeat] = "16x16 tiled";
+    m_GUIParams[btnCopy] = "Copy";
+    m_GUIParams[btnPaste] = "Paste";
+    m_GUIParams[btnFlipH] = "Flip H";
+    m_GUIParams[btnFlipV] = "Flip V";
 
-    m_GUIParams[tabCharset] = "";
+    m_GUIParams[tabCharset] = "Charset";
     m_GUIParams[tabData] = "";
     m_GUIParams[tabLevels] = "";
     m_GUIParams[tabEffects] = "Effects";
@@ -58,7 +59,6 @@ LImageNES::LImageNES(LColorList::Type t) : CharsetImage(t)
     m_exportParams["StartY"] = 0;
     m_exportParams["EndY"] = m_charHeight;
     m_exportParams["Compression"] = 0;
-
 
 
     for (int i=0;i<4;i++)
@@ -128,18 +128,6 @@ void LImageNES::setForeground(unsigned int col)
  //   qDebug() << "HERE";
 }
 
-void LImageNES::ConstrainColours(QVector<int> cols) {
-
-    int j=0;
-    for (int i=0;i<m_colorList.m_list.count();i++)
-        if (cols.contains(i)) {
-            m_colorList.m_list[i].displayList = true;
-//            m_colorList.m_list[i].currentIndex = j++;
-        }
-        else
-            m_colorList.m_list[i].displayList = false;
-
-}
 
 void LImageNES::SaveBin(QFile &file)
 {
@@ -165,9 +153,8 @@ void LImageNES::LoadBin(QFile &file)
 QPixmap LImageNES::ToQPixMap(int chr)
 {
     //QImage img = m_data[chr].toQImage(64, m_bitMask, m_colorList, m_scale);
-    int sz = 64;
+    int sz = 32;
     QImage img = QImage(sz,sz,QImage::Format_RGB32);
-    int w = 16*8;
 //    qDebug() << (chr*8)%16;
     int xx = 0;
     int yy = m_currentBank*16;
@@ -204,6 +191,16 @@ void LImageNES::SetPalette(int pal)
      m_cols[3] = m_colorList.m_nesPPU[0];
 }
 
+QString LImageNES::getMetaInfo() {
+    QString txt = "The NES CHR image is your standard 8kb sprite/tileset (2x256 8x8 pixels) for any 40kb NES project. \n\n";
+    txt+="Data are stored in 2 bitplanes, allowing for a total of 4 colours. The NES CHR consists of 2 \"pages\", where one contains sprite data while the other tile data (can be set programmatically on the NES).\n\n ";
+    txt+="Each of these pages consists of 256 8x8 pixel characters that are usually combined into 16x16 or larger blocks. \n\n";
+    txt+="From a palette of 54 unique colors, you can define 8 attribute palettes of 4 colours each (4 for sprites, 4 for tiles). This palette file is exported ";
+    txt+="as a binary file, and can be used directly TRSE's built-in SetPalette NES method. ";
+    return txt;
+}
+
+
 
 unsigned int LImageNES::getPixel(int x, int y)
 {
@@ -214,6 +211,9 @@ unsigned int LImageNES::getPixel(int x, int y)
         x=x/2;
         y=y/2;
     }
+
+
+
 
     int r = x/(float)8;
     x=x+r*8;

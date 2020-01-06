@@ -60,6 +60,7 @@ public:
     }
 
 
+    virtual QString getMetaInfo() override;
 
 
     void SetColor(uchar col, uchar idx) override;
@@ -94,6 +95,8 @@ public:
     bool KeyPress(QKeyEvent *e) override;
 
     void setLimitedPixel(int x, int y, unsigned int color);
+
+    void onFocus() override;
 
     void FlipHorizontal() override;
     void FlipVertical() override;
