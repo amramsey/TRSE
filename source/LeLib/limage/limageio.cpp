@@ -35,8 +35,8 @@ bool LImageIO::Save(QString filename, LImage* img)
     QString headerID = LImageIO::m_ID;// + m_version;
     QByteArray array = headerID.toLocal8Bit();
     char* header = array.data();
-    unsigned char version[sizeof(float)];
-    memcpy(version, &Data::data.version, sizeof(float));
+    unsigned char version[sizeof(int)];
+    memcpy(version, &Data::data.flfVersion, sizeof(int));
 
     QFile file( filename);
     if( !file.open( QFile::WriteOnly ) )
@@ -53,6 +53,7 @@ bool LImageIO::Save(QString filename, LImage* img)
     file.write( ( char * )( &imageType ),1 );
     file.write( ( char * )( &colorType ),1 );
     img->SaveBin(file);
+    img->m_footer.Save(file);
     file.close();
 }
 
@@ -70,29 +71,22 @@ LImage* LImageIO::Load(QString filename)
     if( !file.open( QFile::ReadOnly ) )
         return nullptr;
 
-    float version;
+
+    int version;
     unsigned char imageType;
     unsigned char paletteType;
 
     file.read( ( char * )( header ), array.count() );
-    file.read( ( char * )( &version ),sizeof(float) );
+    file.read( ( char * )( &version ),sizeof(int) );
     file.read( ( char * )( &imageType ),1);
     file.read( ( char * )( &paletteType ),1);
 
-    /*if (version>Data::data.version) {
-        qDebug() << "File version higher than current version (" << version << " vs current " << Data::data.version << ")";
-        file.close();
-        return nullptr;
-    }
-*/
-/*    qDebug() << "Imagetype: " <<imageType;
-    qDebug() << "PaletteType : " <<paletteType;
-    */
+
     LImage* img = LImageFactory::Create(LImage::CharToType(imageType), LColorList::CharToType(paletteType));
     if (img==nullptr)
         return nullptr;
     img->LoadBin(file);
-
+    img->m_footer.Load(file);
     file.close();
     return img;
 }

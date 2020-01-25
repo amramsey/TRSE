@@ -1,8 +1,8 @@
 program Tutorial11_Lines;
 var
+	@define addr zeropage1
 	i, j,k,val: byte=5;
 	zeropage1: pointer;
-	@define address zeropage1
 	@define bitmapstart "$2000"
 	
 	// Currently, putpixel2 and putpixel3 are supported
@@ -83,7 +83,7 @@ begin
 	bmg_currbank :=0; // Current bitmap bank (added to high bit of putpixel)
 	SetupPixelTables();
 	inczp(zeropage1,10);
-	poke(VIC_DATA_LOC, 0,$18);
+	vic_data_loc:=$18;
 	
 	setmulticolormode();
 	setbitmapmode();
@@ -93,9 +93,8 @@ begin
 	clearbitmap(^$2000,32);
 	clearbitmap(^$6000,32);
 	
-	clearscreen(YELLOW,^$D800);
-	clearscreen(GREEN,^$0400);
-	clearscreen(BLUE,^$4400);
+	clearscreen(YELLOW,screen_col_loc);
+	clearscreen(BLUE,screen_char_loc2);
 
 
 	while (true) do UpdateRaster();

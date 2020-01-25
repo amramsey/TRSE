@@ -29,23 +29,43 @@ MemoryBlock* Node::m_curMemoryBlock = nullptr;
 QMap<QString, bool> Node::flags;
 SymbolTable* Node::parserSymTab;
 
+void Node::DispatchConstructor(Assembler *as) {
+    //        m_blockInfo = m_staticBlockInfo;s
+    m_currentLineNumber = m_op.m_lineNumber;
+    if (m_comment!="") {
+        QString c = m_comment;//.replace("//","\n").replace("/*","\n").replace("\n","\n; //");
+        c = c.replace("//","\n").replace("/*","\n").replace("\n","\n; //");
+        if (!c.trimmed().startsWith(";"))
+            c = ";" + c;
+
+        as->Asm(c);
+//        qDebug() << c;
+
+    }
+
+}
+
 int Node::MaintainBlocks(Assembler* as)
 {
+//    if (as->m_currentBlock!=nullptr)
+  //      qDebug() << as->m_currentBlock->m_pos;
+
     if (m_blockInfo.m_blockID == -1) {
         if (as->m_currentBlock!=nullptr) {
+    //        qDebug() << "Ending blocks " << as->m_currentBlock->m_pos ;
             as->EndMemoryBlock(); // Make sure it is memoryblock!
             return 2;
         }
         return 0;
     }
     if (as->m_currentBlock==nullptr) {
-//        qDebug() << "Starting block at " << m_blockPos ;
+      //  qDebug() << "Starting block at " << m_blockInfo.m_blockPos ;
         as->StartMemoryBlock(m_blockInfo.m_blockPos);
         return 1;
     }
-
     if (as->m_currentBlock!=nullptr) {
         if (m_blockInfo.m_blockPos!=as->m_currentBlock->m_pos) {
+        //    qDebug() << "Switchingblocks at " << m_blockInfo.m_blockPos << as->m_currentBlock->m_pos ;
             as->StartMemoryBlock(m_blockInfo.m_blockPos);
             return 3;
         }
@@ -83,7 +103,7 @@ bool Node::verifyBlockBranchSize(Assembler *as, Node *testBlock)
     dispatcher.as = &tmpAsm;
     testBlock->Accept(&dispatcher);
 //    testBlock->Build(&tmpAsm);
-    //qDebug() << "block count:" << tmpAsm.m_source.count();
+//    qDebug() << "block count:" << tmpAsm.m_source.count();
     int blockCount = tmpAsm.m_source.count();
     return blockCount<80;
 

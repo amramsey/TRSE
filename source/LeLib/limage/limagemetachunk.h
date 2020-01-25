@@ -9,15 +9,13 @@
 class LMetaChunkItem : public LImageContainerItem {
 public:
 
-    int HEADER_SIZE = 16;
-    int HEADER_MULTICOLOR = 0;
-
 //    QByteArray m_header;
 
     QByteArray m_data;
     QByteArray m_attributes;
 
     LImageNES* m_charImage;
+
 
     LMetaChunkItem() {
   //      m_header.resize(HEADER_SIZE);
@@ -44,7 +42,9 @@ public:
         m_height = h;
         m_width = w;
         m_data.resize(m_height*m_width);
+        m_data.fill(0);
         m_attributes.resize(m_height*m_width);
+        m_attributes.fill(0);
     }
 
     void setPixel(float x, float y, uchar color, uchar bitMask);
@@ -58,7 +58,8 @@ public:
 
 
 //class LImageMetaChunk : public LImageQImage, public LImageContainer
-class LImageMetaChunk : public LImageNES, public LImageContainer
+//class LImageMetaChunk : public LImageNES, public LImageContainer
+class LImageMetaChunk : public CharsetImage, public LImageContainer
 {
 public:
     LImageMetaChunk(LColorList::Type t);
@@ -70,6 +71,7 @@ public:
 
 
     LMetaChunkItem m_copy;
+    uchar m_currentAttribute = 0;
 
 
     LImage* m_img = nullptr, *m_charset = nullptr;
@@ -84,9 +86,9 @@ public:
 
     QString GetCurrentDataString() override {
         if (m_current<0) return "";
-        QString blockSize = " char: " + Util::numToHex(m_currencChar);
+        QString blockSize = " char: " + Util::numToHex(m_currentChar);
 //        blockSize += ", " +QString::number(m_items[m_current]->m_height)+")";
-        return "  Sprite : " + QString::number(m_current) + "/" +
+        return "  Char : " + QString::number(m_current) + "/" +
                 QString::number(m_items.count()) + blockSize;
     }
 
@@ -97,6 +99,12 @@ public:
    void LoadCharset(QString file, int skipBytes) override;
 
    unsigned int getPixel(int x, int y) override;
+
+   virtual bool isNes() override {
+       if (m_charset!=nullptr)
+           return m_charset->isNes();
+       return false;
+   }
 
    void SaveBin(QFile& file) override;
    void LoadBin(QFile& file) override;
@@ -116,18 +124,14 @@ public:
    void CopyChar() override;
    void PasteChar() override;
    void setMultiColor(bool doSet) override {
-
+       if (m_charset!=nullptr)
+           m_charset->setMultiColor(doSet);
    }
 
 
 
 //   void ToQImage(LColorList& lst, QImage& img, float zoom, QPointF center) override;
 
-   void SetBank(int bnk) override {
-       m_currentBank = bnk;
-       if (m_charset!=nullptr)
-           m_charset->SetBank(bnk);
-   }
 
 
    void AddNew(int w, int h) override;

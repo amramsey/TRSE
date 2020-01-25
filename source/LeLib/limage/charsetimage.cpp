@@ -32,20 +32,19 @@ CharsetImage::CharsetImage(LColorList::Type t) : MultiColorImage(t)
     m_bitMask = 0b11;
     m_noColors = 4;
     m_scale = 2;
-    m_width = 160;
+    m_width = 320;
     m_minCol = 0;
 //    m_data = new PixelChar[m_charWidth*m_charHeight];
-
+    m_background = 0;
     Clear();
     m_type = LImage::Type::CharMapMulticolor;
     SetColor(1,1);
     SetColor(2,2);
     SetColor(5,3);
 
+    // Needed for NES stuff
 
-    if (Syntax::s.m_currentSystem->m_system==AbstractSystem::VIC20)
-        m_colorList.InitVIC20();
-
+    EnsureSystemColours();
     m_supports.koalaExport = false;
     m_supports.koalaImport = false;
     m_supports.asmExport = false;
@@ -55,17 +54,23 @@ CharsetImage::CharsetImage(LColorList::Type t) : MultiColorImage(t)
     m_supports.flfLoad = true;
     m_supports.asmExport = false;
 
-    m_supports.displayColors = false;
+    m_supports.displayColors = true;
     m_supports.displayForeground = false;
-    m_supports.displayMC2 = false;
+    m_supports.displayMC2 = true;
+    m_supports.displayMC1 = true;
+    m_GUIParams[col2] = "";
+    m_GUIParams[col3] = "Multicolor 1";
+    m_GUIParams[col4] = "Multicolor 2";
 
-    m_currencChar=0;
-    m_currentMode=Mode::FULL_IMAGE;
+    m_currentChar=0;
+    //m_currentMode=Mode::FULL_IMAGE;
     m_exportParams.clear();
     m_exportParams["Start"] = 0;
     m_exportParams["End"] = 256;
     m_exportParams["IncludeColors"] = 0;
     m_exportParams["VIC20mode"] = 0;
+
+    m_supports.displayCharOperations = true;
 
     m_GUIParams[btnLoadCharset] ="";
     m_GUIParams[btn1x1] = "1x1 Character set";
@@ -73,19 +78,19 @@ CharsetImage::CharsetImage(LColorList::Type t) : MultiColorImage(t)
     m_GUIParams[btn2x2repeat] = "2x2 Character repeat";
     m_GUIParams[btnCopy] = "Copy";
     m_GUIParams[btnPaste] = "Paste";
-    m_GUIParams[btnFlipH] = "Flip Horizontal";
-    m_GUIParams[btnFlipV] = "Flip Vertical";
+    m_GUIParams[btnFlipH] = "Mirror X";
+    m_GUIParams[btnFlipV] = "Mirror Y";
     m_GUIParams[btnEditFullCharset] = "Full charset";
 
     m_GUIParams[tabCharset] = "1";
-
+    m_updateCharsetPosition = true;
 }
 
 int CharsetImage::FindClosestChar(PixelChar p)
 {
     int topScore=1E9;
     int winner = 0;
-    for (int i=0;i<256;i++) {
+    for (int i=0;i<m_charWidth*m_charHeight;i++) {
         int score = p.CompareLength2(m_data[i]);
         if (score<topScore) {
             topScore = score;
@@ -94,6 +99,13 @@ int CharsetImage::FindClosestChar(PixelChar p)
 
     }
     return winner;
+}
+
+QString CharsetImage::GetCurrentDataString() {
+    char chr = m_currentChar;
+    if (chr<32) chr+=64;
+    if (m_currentChar>=0x40) chr=0;
+    return "  Character : " + QString(chr) + "  "+ Util::numToHex(m_currentChar) + " (" + QString::number(m_currentChar)+ ")";
 }
 
 QString CharsetImage::getMetaInfo()
@@ -112,10 +124,31 @@ void CharsetImage::SetColor(uchar col, uchar idx)
     if (idx==0)
         m_background = col;
 
+//    qDebug() << QString::number(idx) << QString::number(col);
     for (int i=0;i<m_charHeight*m_charWidth;i++)
         m_data[i].c[idx] = col;
 
+    m_colorList.SetMulticolor(idx,col);
+
+
     m_extraCols[idx] = col;
+
+    if (m_colorList.m_type == LColorList::VIC20 ||  m_colorList.m_type == LColorList::C64) {
+//        qDebug() << "HERE";
+        for (int i=0;i<m_colorList.m_list.count();i++) {
+            if (i<8)
+                m_colorList.m_list[i].displayList = true;
+            else
+                m_colorList.m_list[i].displayList = false;
+
+        }
+        for (int i=0;i<4;i++)
+            m_colorList.m_list[m_extraCols[i]].displayList=true;
+
+    }
+    m_colorList.CreateUI(m_colorList.m_layout,1);
+
+
 }
 
 void CharsetImage::ImportBin(QFile &file)
@@ -136,6 +169,17 @@ void CharsetImage::ExportBin(QFile &f)
 {
     ToRaw(m_rawData);
     f.write(m_rawData);
+
+    QByteArray colorData;
+    for (int i=0;i<m_charWidth*m_charHeight;i++)
+        colorData.append(m_data[i].c[3]);
+
+    QString filenameBase = f.fileName().split(".")[0];
+    QString fColor = filenameBase + "_color.bin";
+    QFile f2(fColor);
+    f2.open(QFile::WriteOnly);
+    f2.write(colorData);
+    f2.close();
 
 }
 
@@ -160,6 +204,9 @@ void CharsetImage::LoadBin(QFile& file)
     file.read( ( char * )( &m_extraCols[2] ), 1 );
     file.read( ( char * )( &m_extraCols[3] ), 1 );
     file.read( ( char * )( &m_data ),  m_charWidth*m_charHeight*12 );
+
+//    for (int i=0;i<m_charWidth*m_charHeight;i++)
+  //      m_data[i].c[3]=5;
 
 }
 
@@ -188,50 +235,23 @@ void CharsetImage::LoadCharset(QString file, int skipBytes)
 
 unsigned int CharsetImage::getPixel(int x, int y)
 {
-    if (m_currencChar>m_charWidth*m_charHeight)
-        return 0;
 
-    if (m_currentMode==FULL_IMAGE)
-        return MultiColorImage::getPixel(x,y);
+    QPoint p = getXY(x,y);
 
+    if (m_colorList.m_isMulticolor)
+        return MultiColorImage::getPixel(p.x(),p.y());
 
+    PixelChar&pc = getPixelChar(p.x(),p.y());
+    if (MultiColorImage::getPixel(p.x(),p.y())!=0)
+        return pc.c[3];
 
-    int bp = 8;
-    if (m_currentMode==CHARSET2x2)
-        bp=16;
-
-
-
-    if (m_currentMode == CHARSET1x1 || m_currentMode == CHARSET2x2) {
-        int i = x/320.0*bp;
-        int j = y/200.0*bp;
-        int shiftx = (m_currencChar*8)%320;
-        int shifty = (m_currencChar/(int)m_charWidth)*8;
+    return pc.c[0];
 
 
-        shiftx/=m_scale;
-
-        return MultiColorImage::getPixel(i+shiftx,j+shifty);
-    }
-    if (m_currentMode == CHARSET2x2_REPEAT) {
-        int i = x/320.0*16*3;
-        int j = y/200.0*16*3;
-        int shiftx = (m_currencChar*8)%320;
-        int shifty = (m_currencChar/(int)m_charWidth)*8;
-
-        shiftx/=m_scale;
-
-        int xx = i%8+shiftx;
-        int yy = j%16+shifty;
-
-        return MultiColorImage::getPixel(xx,yy);
-
-    }
-    return 1;
 }
 
 
-void CharsetImage::FlipVertical()
+/*void CharsetImage::FlipVertical()
 {
 
 
@@ -258,77 +278,8 @@ void CharsetImage::FlipVertical()
 
 
 
- /*   if (m_currentMode==CHARSET2x2) {
-        float i = 160/16.0;
-        float j = 200.0/16.0;
-
-        for (int x=0;x<16;x++)
-            for (int y=0;y<16;y++) {
-                tmp[16*y + x]=getPixel(x*i,y*j+1);
-            }
-        for (int y=0;y<16;y++)
-            for (int x=0;x<16;x++)
-            setPixel( x*i ,y*j+1, tmp[16*y + 15-x]);
-
-    }
-    if (m_currentMode==CHARSET1x1) {
-
-        int n = 8/m_bitMask;
-
-        float i = 320/8.0*m_bitMask;
-        float j = 200.0/8.0;
-
-        for (int x=0;x<n;x++)
-            for (int y=0;y<8;y++) {
-                tmp[n*y + x]=getPixel(x*i,y*j+1);
-            }
-        for (int y=0;y<8;y++)
-            for (int x=0;x<n;x++)
-            setPixel( x*i ,y*j+1, tmp[n*y + n-1-x]);
-
-    }
-
-    */
 }
-
-void CharsetImage::FlipHorizontal()
-{
-/*    uint tmp[24*24];
-    if (m_currentMode==CHARSET2x2) {
-        float i = 160/16.0;
-        float j = 200.0/16.0;
-
-        for (int x=0;x<16;x++)
-            for (int y=0;y<16;y++) {
-                tmp[16*y + x]=getPixel(x*i,y*j+1);
-            }
-        for (int y=0;y<16;y++)
-            for (int x=0;x<16;x++)
-                setPixel( x*i ,y*j+1, tmp[16*(15-y) +x]);
-
-    }*/
-
-    uint tmp[64*64];
-    float i = 160/4.0;
-    float j = 200.0/8.0;
-    int n = 8/m_scale;
-    int ny = 8;
-    if (m_currentMode==CHARSET2x2) {
-        i = 160/16.0;
-        j = 200.0/16.0;
-        n =32/m_scale;
-        ny = 16;
-    }
-
-    for (int x=0;x<n;x++)
-        for (int y=0;y<ny;y++) {
-            tmp[n*y + x]=getPixel(x*i,y*j+1);
-        }
-    for (int y=0;y<ny;y++)
-        for (int x=0;x<n;x++)
-        setPixel( x*i ,y*j+1, tmp[ny*(ny-1-y) + x]);
-
-}
+*/
 
 
 void CharsetImage::FromRaw(QByteArray &arr)
@@ -404,7 +355,7 @@ void CharsetImage::ToRaw(QByteArray &arr)
 void CharsetImage::ToQPixMaps(QVector<QPixmap> &map)
 {
     map.clear();
-    for (int i=0;i<m_charCount;i++) {
+    for (int i=0;i<m_charWidth*m_charHeight;i++) {
         map.append(ToQPixMap(i));
     }
 }
@@ -418,59 +369,65 @@ QPixmap CharsetImage::ToQPixMap(int chr)
 
 void CharsetImage::setPixel(int x, int y, unsigned int color)
 {
+    QPoint p = getXY(x,y);
 
-    if (m_currentMode==FULL_IMAGE) {
-        if (x>=m_width || x<0 || y>=m_height || y<0)
-            return;
+    if (!m_forcePaintColorAndChar) {
         PixelChar& pc = getPixelChar(x,y);
-
-
-        int ix = x % (8/m_scale);//- (dx*m_charHeight);
-        int iy = y % 8;//- (dy*m_charWidth);
-
-        pc.set(m_scale*ix, iy, color, m_bitMask);
+        pc.c[3] = color;
         return;
-    }
-
-    int bp = 8;
-    if (m_currentMode==CHARSET2x2)
-        bp=16;
-
-    int xx,yy;
-    int shiftx = (m_currencChar*8)%320;
-    int shifty = (m_currencChar/(int)m_charWidth)*8;
-    shiftx/=m_scale;
-
-    if (m_currentMode == CHARSET1x1 || m_currentMode == CHARSET2x2) {
-        int i = x/320.0*bp;
-        int j = y/200.0*bp;
-
-        if (j<0 || j>=16 || i<0 || i>=16/m_scale)
-            return;
-        xx = i+shiftx;
-        yy = j+shifty;
-
-
-
-    }
-    if (m_currentMode == CHARSET2x2_REPEAT) {
-        int i = x/320.0*16*3;
-        int j = y/200.0*16*3;
-
-        if (j<0 || j>=16*3 || i<0 || i>=8*3)
-            return;
-
-        xx = i%8+shiftx;
-        yy = j%16+shifty;
-
 
     }
 
-    setLimitedPixel(xx,yy,color);
-//    MultiColorImage::setPixel(xx,yy, color);
 
+    if (m_colorList.m_isMulticolor)
+        setLimitedPixel(p.x(),p.y(),color);
+    else {
+/*        if (color!=m_background)
+            color = 1;
+        else
+            color = 0;*/
+//        m_bitMask = 1;
+  //      m_scale = 1;
+    //    PixelChar& pc = getPixelChar(x,y);
+   //     pc.c[3] = color;
 
+        setLimitedPixel(p.x(),p.y(),color);
 
+    }
+
+}
+
+void CharsetImage::SetBank(int bnk) {
+    m_footer.set(LImageFooter::POS_CURRENT_BANK,bnk);
+    if (m_charset!=nullptr)
+        m_charset->SetBank(bnk);
+}
+
+QPoint CharsetImage::getXY(int x, int y)
+{
+    if (m_footer.get(LImageFooter::POS_DISPLAY_CHAR)==1) {
+        int cx = m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_X)*8;
+        int cy = m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_Y)*8;
+
+        int s = m_bitMask==0b11?2:1;
+
+        cx/=s;
+
+        int sx = (m_currentChar%m_charWidth)*8/s;
+        int sy = (m_currentChar/m_charWidth)*8;
+
+        if (!m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_REPEAT)) {
+            x = (x / (float)m_width)*cx+sx;
+            y = (y / (float)m_height)*cy+sy;
+        }
+        else
+        {
+            x = (int)(x / ((float)m_width)*3*cx)%(cx)+sx;
+            y = (int)(y / ((float)m_height)*3*cy)%(cy)+sy;
+
+        }
+    }
+    return QPoint(x,y);
 }
 
 unsigned int CharsetImage::getCharPixel(int pos,  int pal,int x, int y)
@@ -489,14 +446,16 @@ void CharsetImage::CopyFrom(LImage *img)
    // return LImage::CopyFrom(img);
 
     CharsetImage* mc = dynamic_cast<CharsetImage*>(img);
+    m_colorList.m_isMulticolor = img->m_colorList.m_isMulticolor;
     //if ((typeid(*img) == typeid(MultiColorImage)) || (typeid(*img) == typeid(StandardColorImage))
     //        || (typeid(*img) == typeid(CharsetImage)))
+    m_footer = img->m_footer;
     if (mc!=nullptr)
     {
         m_background = mc->m_background;
         m_border = mc->m_border;
-        m_currentMode = mc->m_currentMode;
-        m_currencChar = mc->m_currencChar;
+        //m_currentMode = mc->m_currentMode;
+        m_currentChar = mc->m_currentChar;
 
         m_width = mc->m_width;
         m_height = mc->m_height;
@@ -511,7 +470,7 @@ void CharsetImage::CopyFrom(LImage *img)
         for (int i=0;i<4;i++)
             m_extraCols[i]  = mc->m_extraCols[i];
         // qDebug() << "COPY FROM";
-#pragma omp parallel for
+//#pragma omp parallel for
         for(int i=0;i<m_charWidth*m_charHeight;i++) {
             for (int j=0;j<8;j++)
                 m_data[i].p[j] = mc->m_data[i].p[j];
@@ -532,24 +491,32 @@ bool CharsetImage::KeyPress(QKeyEvent *e)
 {
     QPoint dir(0,0);
 
-    int s = 1;
 
-    if (m_currentMode==CHARSET2x2 || m_currentMode==CHARSET2x2_REPEAT)
-        s=2;
+    if (e->key()==Qt::Key_0 ) { Data::data.currentColor = m_color.c[0];}
+    if (e->key()==Qt::Key_1 ) { Data::data.currentColor = m_color.c[1];}
+    if (e->key()==Qt::Key_2 ) { Data::data.currentColor = m_color.c[2];}
+    if (e->key()==Qt::Key_3 ) { Data::data.currentColor = m_color.c[3];}
+
+
+
+    int sx = m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_X);
+    int sy = m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_Y);
+//    if (m_currentMode==CHARSET2x2 || m_currentMode==CHARSET2x2_REPEAT)
+  //      s=2;
 
     if (e->key()==Qt::Key_W)
-        m_currencChar-=m_charHeight*s;
+        m_currentChar-=m_charWidthDisplay*sy;
     if (e->key()==Qt::Key_A)
-        m_currencChar-=1*s;
+        m_currentChar-=sx;
     if (e->key()==Qt::Key_S)
-        m_currencChar+=m_charHeight*s;
+        m_currentChar+=m_charWidthDisplay*sy;
     if (e->key()==Qt::Key_D)
-        m_currencChar+=1*s;
+        m_currentChar+=sx;
 
-    if (m_currencChar>=m_charHeight*m_charWidth)
-        m_currencChar=0;
+    if (m_currentChar>=m_charHeight*m_charWidth)
+        m_currentChar=0;
 
-    m_currencChar = Util::clamp(m_currencChar,0,255);
+    m_currentChar = Util::clamp(m_currentChar,0,m_charWidth*m_charHeight-1);
 
 
     return true;
@@ -563,6 +530,8 @@ void CharsetImage::setLimitedPixel(int x, int y, unsigned int color)
     PixelChar& pc = getPixelChar(x,y);
 
  //   pc.Reorganize(m_bitMask, m_scale,m_minCol, m_noColors);
+
+  //      qDebug() << QString::number(color) << QString::number(pc.c[0]) << QString::number(pc.c[1]) << QString::number(pc.c[2]) << QString::number(pc.c[3]);
 
     int ix = x % (8/m_scale);//- (dx*m_charHeight);
     int iy = y % 8;//- (dy*m_charWidth);
@@ -579,33 +548,25 @@ void CharsetImage::onFocus() {
         LoadCharset(m_charsetFilename,0);
 }
 
-void CharsetImage::CopyChar()
+int CharsetImage::getCharWidthDisplay()
 {
-    if (m_currentMode == CHARSET1x1)
-        m_copy[0] = m_data[m_currencChar];
-
-    if (m_currentMode == CHARSET2x2 || m_currentMode == CHARSET2x2_REPEAT) {
-        m_copy[0] = m_data[m_currencChar];
-        m_copy[1] = m_data[m_currencChar+1];
-        m_copy[2] = m_data[m_currencChar+40];
-        m_copy[3] = m_data[m_currencChar+41];
-
+    if (m_footer.get(LImageFooter::POS_DISPLAY_CHAR)==1) {
+        int i =1;
+        if (m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_REPEAT)==1)
+            i=3;
+        return i*8*m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_X);
     }
-
+    return m_charWidthDisplay;
 }
 
-void CharsetImage::PasteChar()
+int CharsetImage::getCharHeightDisplay()
 {
-    if (m_currentMode == CHARSET1x1)
-        m_data[m_currencChar]=m_copy[0];
-
-    if (m_currentMode == CHARSET2x2 || m_currentMode == CHARSET2x2_REPEAT) {
-        m_data[m_currencChar] = m_copy[0];
-        m_data[m_currencChar+1] = m_copy[1];
-//        m_data[m_currencChar+m_charHeight] = m_copy[2];
-        m_data[m_currencChar+40] = m_copy[2];
-        m_data[m_currencChar+41] = m_copy[3];
-
+    if (m_footer.get(LImageFooter::POS_DISPLAY_CHAR)==1) {
+        int i =1;
+        if (m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_REPEAT)==1)
+            i=3;
+        return i*8*m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_Y);
     }
-
+    return m_charHeightDisplay;
 }
+

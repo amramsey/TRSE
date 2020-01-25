@@ -1,0 +1,12 @@
+<h3>val := PPURead()</h3>
+PPURead reads a single byte to the memory address and returns it to a byte value.
+
+<code>
+    // Point to first colour attribute in first nametable $23C0
+    PPUPoint($23,$C0);
+    // Write walue zero = four tiles use tile palette 0
+    PPUWrite(0);
+    // PPU now points to $23C1.
+    i:=PPURead(); // Reads value of $23C1 into i, increments to $23C2
+    PPUWrite(i); // Writes value of "i" to $23C2
+</code>

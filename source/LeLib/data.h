@@ -29,7 +29,7 @@ class Data
 {
 public:
     Data();
-//    float version = 0.01;
+    int flfVersion = 2;
     QString version = "0.09.internal";
 
     bool redrawOutput=false;
@@ -41,6 +41,7 @@ public:
     bool requestSaveAs = false;
     bool requestCloseWindow = false;
     bool blink = false;
+    QString currentPath;
     float percent = 0;
     unsigned char currentColor = 0;
     bool currentIsColor = false;

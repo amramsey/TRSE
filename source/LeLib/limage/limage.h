@@ -24,7 +24,6 @@
 
 #include <QString>
 #include <QImage>
-#include "source/LeLib/limage/lcolorlist.h"
 #include <QVector3D>
 #include <QGraphicsEffect>
 #include <QGraphicsBlurEffect>
@@ -33,6 +32,9 @@
 #include <QDebug>
 #include <QLabel>
 #include <QTableWidget>
+#include "source/LeLib/limage/limagefooter.h"
+#include "source/LeLib/limage/lcolorlist.h"
+// Footer contains image-state specific data
 
 
 class CharsetImage;
@@ -81,6 +83,7 @@ public:
     bool displayBank = false;
 
 
+    bool displayCharOperations = false;
 
     bool displayTimestamp = false;
 
@@ -88,8 +91,12 @@ public:
 };
 
 
+
 class LImage
 {
+
+
+
 public:
     enum Type { QImageBitmap, MultiColorBitmap, HiresBitmap,
                 NotSupported, Tiff, CharMapMulticolor, FullScreenChar, LevelEditor, CharmapRegular, CharMapMultiColorFixed,
@@ -105,19 +112,22 @@ public:
     }
     LImageSupports m_supports;
 
-
+    LImageFooter m_footer;
     static unsigned char TypeToChar(Type t);
+    static QString TypeToString(Type t);
     static Type CharToType(unsigned char c);
 
     enum GUIType { btnLoadCharset, btnEditFullCharset, btn1x1, btn2x2,
                    btn2x2repeat, btnFlipV, btnFlipH, btnCopy, btnPaste,
-                   tabLevels, tabCharset, tabData, tabSprites, tabEffects};
+                   tabLevels, tabCharset, tabData, tabSprites, tabEffects, col1,col2,col3,col4};
 
 
     QMap<QString, float> m_exportParams;
     QMap<QString, QString> m_exportParamsComments;
 
     QMap<GUIType, QString> m_GUIParams;
+
+    virtual bool isNes() {return false;}
 
     QVector<MetaParameter*> m_metaParams;
     MetaParameter* getMetaParameter(QString name);
@@ -128,12 +138,15 @@ public:
     }
 
 
-    int m_charWidthDisplay = 40;
+    virtual int getCharWidthDisplay();
+    virtual int getCharHeightDisplay();
+
     int m_charHeightDisplay = 25;
-    int m_currentBank = 0;
+    int m_charWidthDisplay = 40;
+
 
     virtual void SetBank(int bnk) {
-        m_currentBank = bnk;
+        m_footer.set(LImageFooter::POS_CURRENT_BANK,bnk);
     }
 
     virtual void onFocus()  {
@@ -143,6 +156,11 @@ public:
     virtual void Initialize() {
 
     }
+
+
+    virtual void VBMExport(QFile& file, int p1, int p2, int p3) {}
+
+    virtual void CopySingleChar(LImage* src, int srcChar, int dstChar) {qDebug() << "CopySingleChar not implemented";}
 
     int m_constrainDisplay = -1;
     bool m_silentExport=false;
@@ -158,8 +176,29 @@ public:
     unsigned char m_minCol = 1;
     float m_importScaleX = 1;
     float m_importScaleY = 1;
-    unsigned int m_currencChar;
+    unsigned int m_currentChar;
+    // Updates charset position in editor
+    bool m_updateCharsetPosition = false;
+    bool m_forcePaintColorAndChar = true;
 
+    QPoint m_copySize = QPoint(512,512);
+    static uchar m_copy[];
+
+    virtual int getGridWidth() {
+        return getCharWidthDisplay();
+    }
+    virtual int getGridHeight() {
+        return getCharHeightDisplay();
+    }
+
+//    enum Mode{ FULL_IMAGE, CHARSET1x1, CHARSET2x2, CHARSET2x2_REPEAT};
+  //  Mode m_currentMode = FULL_IMAGE;
+    QString GetCurrentModeString();
+
+
+//    Mode m_copyFromMode;
+
+    static bool m_hasCopy;// = false;
 
 
     virtual int GetWidth() {
@@ -171,7 +210,7 @@ public:
 
 
 
-    virtual void setCurrentChar(int i) {m_currencChar = i;}
+    virtual void setCurrentChar(int i) {m_currentChar = i;}
 
     virtual CharsetImage* getCharset() { return nullptr; }
 
@@ -210,14 +249,15 @@ public:
 
     virtual void RenderEffect(QMap<QString, float> params) {}
 
-    virtual void CopyChar() {}
-    virtual void PasteChar() {}
+    virtual void CopyChar();
+
+    virtual void PasteChar();
 
   //  virtual void Delete() {}
 
 
-    virtual void FlipHorizontal() {}
-    virtual void FlipVertical() {}
+    virtual void FlipHorizontal();
+    virtual void FlipVertical();
 
 //    virtual void Next() {}
   //  virtual void Prev() {}
@@ -228,9 +268,6 @@ public:
 
     virtual void Initialize(int width, int height) = 0;
 
-    virtual QString GetCurrentModeString() {
-        return "Full image mode";
-    }
 
     virtual QString GetCurrentDataString() {
         return "";
@@ -296,16 +333,22 @@ public:
 
     virtual void CopyFrom(LImage* img);
 
+
+    virtual int getCharAtPos(QPoint p, float zoom, QPointF center) { return 0;}
+
     virtual void SetCurrentType(WriteType wt) {
         m_writeType = wt;
     }
 
     void CopyTo(LImage* img);
 
-    virtual void Clear() = 0;
+    virtual void Clear();
     virtual void fromQImage(QImage* img, LColorList& lst) = 0;
 
     virtual void ExportAsm(QString filename)  { qDebug() << "ASM Write not supported"; }
+    virtual void ShiftXY(int x, int y);
+
+    void EnsureSystemColours();
 
 };
 

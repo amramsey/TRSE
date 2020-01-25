@@ -160,8 +160,9 @@ void MainWindow::mouseMoveEvent(QMouseEvent *event)
     FormImageEditor* fe = dynamic_cast<FormImageEditor*>(m_currentDoc);
     if (fe==nullptr)
         return;
+
+
 //    m_updateThread->pos = mapToGlobal( fe->getLabelImage()->rect().topLeft());
-  //  qDebug() << m_updateThread->pos;
 }
 
 
@@ -222,6 +223,8 @@ void MainWindow::VerifyDefaults()
     if (!m_iniFile.contains("auto_inject"))
         m_iniFile.setFloat("auto_inject", 1);
 
+    if (!m_iniFile.contains("editor_cursor_width"))
+        m_iniFile.setFloat("editor_cursor_width",1);
 
     if (!m_iniFile.contains("theme"))
         m_iniFile.setString("theme", "dark_standard.ini");
@@ -241,6 +244,9 @@ void MainWindow::VerifyDefaults()
         m_iniFile.setFloat("memory_analyzer_window_width", 600);
     if (!m_iniFile.contains("memory_analyzer_window_height"))
         m_iniFile.setFloat("memory_analyzer_window_height", 600);
+    if (!m_iniFile.contains("image_painter"))
+        m_iniFile.setFloat("image_painter", 0);
+
 
 
     //    qDebug() << m_ini.getString("ok64_emulator");
@@ -353,6 +359,10 @@ void MainWindow::ConnectDocument()
     connect(m_currentDoc, SIGNAL(requestBuild()), this, SLOT(acceptBuild()));
     connect(m_currentDoc, SIGNAL(requestBuildMain()), this, SLOT(acceptBuildMain()));
     connect(m_currentDoc, SIGNAL(requestRunMain()), this, SLOT(acceptRunMain()));
+
+    connect(m_currentDoc, SIGNAL(emitNewRas()), this, SLOT(on_actionRas_source_file_triggered()));
+    connect(m_currentDoc, SIGNAL(emitNewImage()), this, SLOT(on_actionImage_triggered()));
+
 
 //    connect(m_currentDoc, SIGNAL(NotifyOtherSourceFiles()), this, SLOT(AcceptUpdateSourceFiles()));
     if (dynamic_cast<FormRasEditor*>(m_currentDoc)!=nullptr)
@@ -820,21 +830,20 @@ void MainWindow::on_actionImage_triggered()
         return;
     }
 
+    ImageWorker tmp;
 
-    FormImageEditor* editor = new FormImageEditor(this);
     DialogNewImage* dNewFile = new DialogNewImage(this);
-    dNewFile->Initialize(editor->m_work.m_types);
+    dNewFile->Initialize(tmp.m_types);
     dNewFile->setModal(true);
     dNewFile->exec();
-    if (dNewFile->retVal!=-1) {
-
-        editor->m_work.New(dNewFile->m_metaImage,dNewFile->retVal);
-    } else {
-        delete editor;
+    if (dNewFile->retVal==-1) {
         delete dNewFile;
         return;
     }
+    FormImageEditor* editor = new FormImageEditor(this);
+    editor->m_work.New(dNewFile->m_metaImage,dNewFile->retVal);
     delete dNewFile;
+
 
     editor->UpdatePalette();
     editor->InitDocument(nullptr, &m_iniFile, &m_currentProject.m_ini);
@@ -942,6 +951,7 @@ void MainWindow::LoadProject(QString filename)
     CloseAll();
     m_currentProject.Load(filename);
     m_currentPath = QFileInfo(QFile(filename)).absolutePath();
+    Data::data.currentPath = m_currentPath;
     VerifyProjectDefaults();
 //    m_iniFile.setString("project_path", getProjectPath());
     m_iniFile.addStringList("recent_projects", filename, true);
@@ -1392,4 +1402,24 @@ void MainWindow::on_action_Memory_map_C_u_triggered()
     if (m_currentDoc!=nullptr)
         m_currentDoc->MemoryAnalyze();
 
+}
+
+void MainWindow::on_actionSave_triggered()
+{
+    if (m_currentDoc==nullptr)
+        return;
+    m_currentDoc->SaveCurrent();
+
+}
+
+void MainWindow::on_actionOpen_project_location_triggered()
+{
+    if (m_currentPath=="")
+        return;
+    QDesktopServices::openUrl( QUrl::fromLocalFile(m_currentPath) );
+}
+
+void MainWindow::on_btnProjectDir_clicked()
+{
+    on_actionOpen_project_location_triggered();
 }

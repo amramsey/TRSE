@@ -157,7 +157,7 @@ void Compression::OptimizeScreenAndCharset(QVector<int> &screen, QByteArray &cha
 
 //            qDebug() << "   Current s: " << QString::number(s) ;
             int found = -1;
-            int curMin = 800;
+            int curMin = 8000;
             for (int j=0;j<cOut.count()/8;j++) {
                 //int Compression::Compare(QByteArray &a, QByteArray &b, int p1, int p2, int length)
                 int res = Compare(cOut, charset,j*8,s*8,8);
@@ -248,14 +248,10 @@ void Compression::OptimizeAndPackCharsetData(QByteArray &dataIn, QByteArray &out
 {
     out.clear();
     table.clear();
-/*Width :  3
-total rows:  4032
-total chars x frames:  1344
-total chars:  42
-cnt SHOULD be  576*/
 
     int cnt = dataIn.count()/width;
     qDebug() << "Width : " << width;
+    qDebug() << "Data count : " <<dataIn.count();
     qDebug() << "total rows: " << cnt;
     qDebug() << "total chars x frames: " << (cnt/width);
     qDebug() << "total chars: " << (cnt/32)/width;

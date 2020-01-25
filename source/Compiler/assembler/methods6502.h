@@ -33,7 +33,7 @@ public:
     void Random(Assembler* as);
 
     void CallOKVC(Assembler* as, int noParams, uchar val);
-
+    void WaitForVerticalBlank(Assembler* as);
     void MoveTo(Assembler* as);
     void MoveTo80(Assembler* as);
     void SetFrequency(Assembler *as);
@@ -89,7 +89,7 @@ public:
     void LoadPalette(Assembler* as);
     void ReadInput(Assembler* as);
     void PPUDump(Assembler* as, int hi, int lo,int x, int y);
-    void PPUSingle(Assembler* as);
+    void PPUSingle(Assembler* as, int type);
     void PPURead(Assembler* as);
     void LoadSong(Assembler *as);
     void PPUDrawColumn(Assembler* as);
@@ -180,6 +180,7 @@ public:
     // Vic20 Bitmap Mode
     void initVbm(Assembler* as);
     void vbmSetDisplayMode(Assembler* as);
+    void vbmResetDisplayMode(Assembler* as);
     void vbmDebug(Assembler* as);
     void vbmSetColumn(Assembler *as);
     void initVbmNextColumn(Assembler *as);
@@ -244,6 +245,18 @@ public:
     void initVbmSpriteShiftL(Assembler* as);
     void vbmSpriteShiftL(Assembler* as);
 
+    void initVbmSpriteShiftSR(Assembler* as);
+    void vbmSpriteShiftSR(Assembler* as);
+    void initVbmSpriteShiftSL(Assembler* as);
+    void vbmSpriteShiftSL(Assembler* as);
+
+    void initVbmDrawSprite(Assembler *as);
+    void vbmDrawSprite(Assembler *as);
+    void initVbmDrawSpriteE(Assembler *as);
+    void vbmDrawSpriteE(Assembler *as);
+    void initVbmClearSprite(Assembler *as);
+    void vbmClearSprite(Assembler *as);
+
     void initVbmDrawSprite8(Assembler *as);
     void vbmDrawSprite8(Assembler *as);
     void initVbmDrawSprite8E(Assembler *as);
@@ -274,8 +287,20 @@ public:
     void initVbmClearText(Assembler *as);
     void vbmClearText(Assembler *as);
 
+    void initVbmDrawSmallTextO(Assembler *as);
+    void vbmDrawSmallTextO(Assembler *as);
+    void initVbmDrawSmallTextE(Assembler *as);
+    void vbmDrawSmallTextE(Assembler *as);
+    void initVbmClearSmallText(Assembler *as);
+    void vbmClearSmallText(Assembler *as);
+
     void initVbmDrawBCD(Assembler *as);
     void vbmDrawBCD(Assembler *as);
+
+    void initVbmCopyToBuffer(Assembler *as);
+    void vbmCopyToBuffer(Assembler *as);
+    void initVbmCopyFromBuffer(Assembler *as);
+    void vbmCopyFromBuffer(Assembler *as);
 
 
 

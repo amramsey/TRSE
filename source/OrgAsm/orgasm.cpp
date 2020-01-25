@@ -118,7 +118,8 @@ OrgasmLine Orgasm::LexLine(int i) {
 
     }
 
-    if (!(line[0]==" ") && !line.contains("=")) {
+//    qDebug() << line.contains("\"") << line;
+    if (!(line[0]==" ") && !(line.contains("=") && !line.contains("\""))) {
         QString lbl = line.replace(":", " ").trimmed().split(" ")[0];
         l.m_label = lbl;
         line.remove(0, lbl.length()).replace(":", " ");
@@ -151,7 +152,7 @@ OrgasmLine Orgasm::LexLine(int i) {
         l.m_expr = lst[1];
         return l;
     }
-    if (line.contains("=")) {
+    if (line.contains("=") && !line.contains("\"")) {
         l.m_type = OrgasmLine::CONSTANT;
         QStringList cl = line.split("=");
         l.m_label = cl[0].trimmed();
@@ -208,6 +209,7 @@ bool Orgasm::Assemble(QString filename, QString outFile)
 
     for (int i=0;i<m_lines.count();i++) {
         OrgasmLine ol = LexLine(i);
+        ol.m_lineNumber = i;
         if (!ol.m_ignore)
             m_olines.append(ol);
     }
@@ -679,7 +681,7 @@ void Orgasm::ProcessInstructionData(OrgasmLine &ol, OrgasmData::PassType pd)
     if (m_opCode=="bpl" || m_opCode=="bne" || m_opCode=="beq" || m_opCode=="bcc" || m_opCode=="bcs" || m_opCode=="bvc" || m_opCode=="bmi" || m_opCode=="bvc" || m_opCode=="bvs") {
         int diff = (val)-m_pCounter-2;
         if (abs(diff)>=128 && pd==OrgasmData::PASS_SYMBOLS) {
-            throw QString("Branch out of range : " +QString::number(diff) + " on line :" + m_opCode + " " +expr);
+            throw QString("Branch out of range : " +QString::number(diff) + " :" + m_opCode + " " +expr + " on line " + QString::number(ol.m_lineNumber));
         }
         data.append((uchar)diff);
     }

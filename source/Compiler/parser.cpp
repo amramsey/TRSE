@@ -51,10 +51,18 @@ void Parser::InitObsolete()
 
 void Parser::Eat(TokenType::Type t)
 {
+//    qDebug() << m_currentToken.m_value << m_currentToken.m_intVal;
     if (m_currentToken.m_type == t) {
         m_currentToken = m_lexer->GetNextToken();
-        if (m_currentToken.m_type==TokenType::PREPROCESSOR && m_pass==1)
+//        if (m_pass==1)
+  //          qDebug() << "Token : " <<m_currentToken.m_value <<(m_currentToken.m_type==TokenType::PREPROCESSOR) << m_pass;
+        int cnt =0;
+        while (m_currentToken.m_type==TokenType::PREPROCESSOR && m_pass==1 && cnt++<32 ) {
             HandlePreprocessorInParsing();
+          //  qDebug() << "Inside handle: " << m_currentToken.m_value;
+
+//            qDebug() <<cnt++ <<m_currentToken.m_value;
+        }
 
     }
     else {
@@ -72,6 +80,7 @@ void Parser::Eat()
 {
     Eat(m_currentToken.m_type);
 }
+
 
 int Parser::findSymbolLineNumber(QString symbol)
 {
@@ -195,10 +204,15 @@ void Parser::InitBuiltinFunctions()
         InitBuiltinFunction(QStringList()<< "vbmspritestitch(", "initVbmSpriteStitch");
         InitBuiltinFunction(QStringList()<< "vbmspriteshiftr(", "initVbmSpriteShiftR");
         InitBuiltinFunction(QStringList()<< "vbmspriteshiftl(", "initVbmSpriteShiftL");
+        InitBuiltinFunction(QStringList()<< "vbmspriteshiftsr(", "initVbmSpriteShiftSR");
+        InitBuiltinFunction(QStringList()<< "vbmspriteshiftsl(", "initVbmSpriteShiftSL");
 
         InitBuiltinFunction(QStringList()<< "vbmdrawsprite8(", "initVbmDrawSprite8");
         InitBuiltinFunction(QStringList()<< "vbmdrawsprite8e(", "initVbmDrawSprite8E");
         InitBuiltinFunction(QStringList()<< "vbmclearsprite8(", "initVbmClearSprite8");
+        InitBuiltinFunction(QStringList()<< "vbmdrawsprite(", "initVbmDrawSprite");
+        InitBuiltinFunction(QStringList()<< "vbmdrawspritee(", "initVbmDrawSpriteE");
+        InitBuiltinFunction(QStringList()<< "vbmclearsprite(", "initVbmClearSprite");
 
         InitBuiltinFunction(QStringList()<< "vbmdrawsprite16(", "initVbmDrawSprite16");
         InitBuiltinFunction(QStringList()<< "vbmdrawsprite16e(", "initVbmDrawSprite16E");
@@ -213,11 +227,20 @@ void Parser::InitBuiltinFunctions()
         InitBuiltinFunction(QStringList()<< "vbmdrawtexte(", "initVbmDrawTextE");
         InitBuiltinFunction(QStringList()<< "vbmcleartext(", "initVbmClearText");
 
+        InitBuiltinFunction(QStringList()<< "vbmdrawsmalltexto(", "initVbmDrawSmallTextO");
+        InitBuiltinFunction(QStringList()<< "vbmdrawsmalltexte(", "initVbmDrawSmallTextE");
+        InitBuiltinFunction(QStringList()<< "vbmclearsmalltext(", "initVbmClearSmallText");
+
         InitBuiltinFunction(QStringList()<< "vbmdrawbcd(", "initVbmDrawBCD");
+
+        InitBuiltinFunction(QStringList()<< "vbmcopytobuffer(", "initVbmCopyToBuffer");
+        InitBuiltinFunction(QStringList()<< "vbmcopyfrombuffer(", "initVbmCopyFromBuffer");
 
 
     }
     Node::m_staticBlockInfo.m_blockID = -1;
+    Node::m_staticBlockInfo.m_blockPos = "";
+    Node::m_staticBlockInfo.m_blockName = "";
 //    EndMemoryBlock();
  }
 
@@ -326,27 +349,117 @@ void Parser::PreprocessConstants()
     m_lexer->m_text = txt;
 }
 
-int Parser::GetParsedInt()
+int Parser::getParsedNumberOrConstant() {
+
+    if (m_currentToken.m_value=="") {
+        return m_currentToken.m_intVal;
+    }
+    Symbol* s = m_symTab->LookupConstants(m_currentToken.m_value.toUpper());
+    if (s==nullptr)
+        ErrorHandler::e.Error("Value required to be a number or a constant.",m_currentToken.m_lineNumber);
+
+    return s->m_value->m_fVal;
+}
+
+int Parser::GetParsedInt() {
+
+
+    bool done = false;
+    QString str = "";
+    int p = 0;
+    while (!done) {
+//        qDebug() << "ival:"  << QString::number(m_currentToken.m_intVal);
+//        qDebug() << m_currentToken.getType();
+        if (m_currentToken.m_type==TokenType::LPAREN) {
+            str = str+ "(";
+            p++;
+            Eat();
+            continue;
+        }
+        if (m_currentToken.m_type==TokenType::RPAREN) {
+            if (p==0) {
+//                Eat();
+                // OOps! Hit a ")" that is not part of an equation!
+                done=true;
+                continue;
+
+            }
+            str = str+ ")";
+            p--;
+            Eat();
+            continue;
+        }
+
+        if (m_currentToken.m_type==TokenType::PLUS) {
+            str = str+ "+";
+            Eat();
+            continue;
+        }
+        if (m_currentToken.m_type==TokenType::MINUS) {
+            str = str+ "-";
+            Eat();
+            continue;
+        }
+        if (m_currentToken.m_type==TokenType::MUL) {
+            str = str+ "*";
+            Eat();
+            continue;
+        }
+        if (m_currentToken.m_type==TokenType::DIV) {
+            str = str+ "/";
+            Eat();
+            continue;
+        }
+
+        if (m_currentToken.m_value=="") {
+            str+=QString::number(m_currentToken.m_intVal);
+            Eat();
+        }
+        else {
+            Symbol* s = m_symTab->LookupConstants(m_currentToken.m_value.toUpper());
+              if (s==nullptr)
+                  done=true;
+              else {
+               str+=QString::number(s->m_value->m_fVal);
+               Eat();
+              }
+     //             ErrorHandler::e.Error("Value required to be a number or a constant.",m_currentToken.m_lineNumber);
+
+        }
+    }
+//    if (p!=0)
+    for (int i=0;i<p;i++)
+        str+=")";
+    QJSEngine myEngine;
+    QJSValue ret = myEngine.evaluate(str);
+//    qDebug() << str << ret.toInt();
+    return ret.toInt();
+}
+
+
+int Parser::GetParsedIntOld()
 {
     bool done = false;
     int val = 0;
     QString op = "plus";
-    if (m_currentToken.m_value!="") {
+/*    if (m_currentToken.m_value!="") {
         val= getIntVal(m_currentToken);
         Eat();
         return val;
     }
-
+*/
     while (!done) {
 //        qDebug() << "ival:"  << QString::number(m_currentToken.m_intVal);
         if (op == "plus")
-            val = val + m_currentToken.m_intVal;
+            val = val + getParsedNumberOrConstant();
         if (op == "mul")
-            val = val * m_currentToken.m_intVal;
+            val = val * getParsedNumberOrConstant();
         if (op == "div")
-            val = val / m_currentToken.m_intVal;
+            val = val / getParsedNumberOrConstant();
         if (op == "minus")
-            val = val - m_currentToken.m_intVal;
+            val = val - getParsedNumberOrConstant();
+
+
         Eat();
         done = true;
         if (m_currentToken.m_type == TokenType::MUL) {
@@ -370,6 +483,8 @@ int Parser::GetParsedInt()
 
     }
 //    qDebug() << QString::number(val);
+//    qDebug() << "End " << Util::numToHex(val);
+
     return val;
 }
 
@@ -430,6 +545,7 @@ void Parser::RemoveUnusedProcedures()
 
 void Parser::HandlePreprocessorInParsing()
 {
+
     if (m_currentToken.m_value=="define") {
         Eat();
         Eat();
@@ -441,8 +557,29 @@ void Parser::HandlePreprocessorInParsing()
         Eat();
         Eat();
         Eat();
+        if (m_currentToken.m_type==TokenType::INTEGER_CONST)
+            Eat();
         return;
     }
+    if (m_currentToken.m_value=="importchar") {
+        Eat();
+        Eat();
+        Eat();
+        Eat();
+        Eat();
+        return;
+    }
+
+    if (m_currentToken.m_value=="vbmexport") {
+        Eat();
+        Eat(TokenType::STRING);
+        Eat(TokenType::STRING);
+        Eat(TokenType::INTEGER_CONST);
+        Eat(TokenType::INTEGER_CONST);
+        Eat(TokenType::INTEGER_CONST);
+        return;
+    }
+
 
     if (m_currentToken.m_value=="donotremove") {
         Eat();
@@ -497,6 +634,7 @@ void Parser::HandlePreprocessorInParsing()
     if (m_currentToken.m_value=="include") {
         Eat();
         Eat();
+        return;
     }
     if (m_currentToken.m_value=="endif") {
         Eat();
@@ -520,7 +658,23 @@ void Parser::HandlePreprocessorInParsing()
             return;
     }
 
+
+
+    if (m_currentToken.m_value=="endblock") {
+        int i = m_pass;
+        m_pass = 2;
+        Eat();
+        m_pass=i;
+//        qDebug() << "HandleCurrent Endblock " << Node::m_staticBlockInfo.m_blockPos;
+        Node::m_staticBlockInfo.m_blockID = -1;
+        Node::m_staticBlockInfo.m_blockPos = "";
+        Node::m_staticBlockInfo.m_blockName="";
+        m_pass = i;
+        return;
+    }
     if (m_currentToken.m_value=="startblock") {
+        int i = m_pass;
+        m_pass = 2;
         Eat();
         QString startPos = m_currentToken.getNumAsHexString();
         Eat();
@@ -533,14 +687,12 @@ void Parser::HandlePreprocessorInParsing()
         Node::m_staticBlockInfo.m_blockID = pb.m_blockID;
         Node::m_staticBlockInfo.m_blockPos = pb.pos;
         Node::m_staticBlockInfo.m_blockName = name;
+//        qDebug() << "HandleCurrent StartBlock " << Node::m_staticBlockInfo.m_blockPos;
+        m_pass = i;
 
-//        qDebug() << "Starting block: " << Node::m_currentBlockPos;
+        return;
     }
-    if (m_currentToken.m_value=="endblock") {
-        Eat();
-        Node::m_staticBlockInfo.m_blockID = -1;
 
-    }
 
 }
 
@@ -552,6 +704,7 @@ void Parser::StripWhiteSpaceBeforeParenthesis()
 void Parser::RemoveComments()
 {
     QRegularExpression rg = QRegularExpression("/\\*([^*]|[\\r\\n]|(\\*+([^*/]|[\\r\\n])))*\\*+/");
+
     //qDebug() << rg;
     m_lexer->m_text = m_lexer->m_text.replace(rg, "");
 
@@ -776,6 +929,7 @@ Node *Parser::Statement()
     if (node==nullptr)
         ErrorHandler::e.Error("Node is nullpointer. Should not happen. Contact leuat@irio.co.uk and slap him.",0);
 
+    AppendComment(node);
 
     return node;
 
@@ -837,11 +991,32 @@ Node *Parser::BinaryClause()
     else
     {
         comparetoken = m_currentToken;
+
+        if (!(comparetoken.m_type==TokenType::EQUALS || comparetoken.m_type==TokenType::NOTEQUALS ||
+            comparetoken.m_type==TokenType::GREATER || comparetoken.m_type==TokenType::LESS ||
+            comparetoken.m_type==TokenType::GREATEREQUAL || comparetoken.m_type==TokenType::LESSEQUAL))
+        {
+            ErrorHandler::e.Error("Unknown compare type : '" + comparetoken.m_value+"'. Did you mean '=' or '>' etc?",comparetoken.m_lineNumber);
+        }
+
+
+
          Eat();
         b = Expr();
 
     }
     return new NodeBinaryClause(comparetoken, a, b);
+}
+
+
+void Parser::AppendComment(Node *n)
+{
+    if (m_lexer->m_currentComment=="")
+        return;
+    if (n==nullptr)
+        return;
+    n->m_comment = m_lexer->m_currentComment;
+    m_lexer->m_currentComment="";
 }
 
 
@@ -888,6 +1063,7 @@ QVector<Node*> Parser::StatementList()
     while (m_currentToken.m_type == TokenType::SEMI) {
         Eat(TokenType::SEMI);
         Node* n = Statement();
+
         results.append(n);
 
     }
@@ -1087,8 +1263,14 @@ void Parser::Preprocess()
             else if (m_currentToken.m_value.toLower() =="export") {
                 Eat(TokenType::PREPROCESSOR);
                 HandleExport();
-
-
+            }
+            else if (m_currentToken.m_value.toLower() =="vbmexport") {
+                Eat(TokenType::PREPROCESSOR);
+                HandleVBMExport();
+            }
+            else if (m_currentToken.m_value.toLower() =="importchar") {
+                Eat(TokenType::PREPROCESSOR);
+                HandleImportChar();
             }
 
             else if (m_currentToken.m_value.toLower() =="startassembler") {
@@ -1262,7 +1444,7 @@ Node* Parser::Parse(bool removeUnusedDecls, QString param, QString globalDefines
     m_lexer->m_orgText = m_lexer->m_orgText + "\n" + globalDefines+"\n";
     m_lexer->m_text = m_lexer->m_orgText;
     m_pass = 0;
-//    RemoveComments();
+  //  RemoveComments();
     InitObsolete();
     StripWhiteSpaceBeforeParenthesis(); // TODO: make better fix for this
     InitSystemPreprocessors();
@@ -1273,7 +1455,9 @@ Node* Parser::Parse(bool removeUnusedDecls, QString param, QString globalDefines
     Preprocess();
 //    PreprocessConstants();
     m_pass = 1;
+    m_lexer->m_currentComment = "";
     m_parserBlocks.clear();
+    SymbolTable::m_constants.clear();
     m_symTab = new SymbolTable();
     m_symTab->m_useLocals = useLocals;
 
@@ -1379,9 +1563,9 @@ QVector<Node *> Parser::Parameters(QString blockName)
         Eat(TokenType::LPAREN);
         while (m_currentToken.m_type==TokenType::ID) {
             QVector<Node*> ns = VariableDeclarations(blockName);
+
             for (Node* n: ns)
                 decl.append(n);
-
             Eat(m_currentToken.m_type);
         }
     }
@@ -1485,10 +1669,18 @@ QVector<Node*> Parser::Declarations(bool isMain, QString blockName)
     QVector<Node*> decl;
     if (m_currentToken.m_type==TokenType::VAR) {
         Eat(TokenType::VAR);
-        while (m_currentToken.m_type==TokenType::ID) {
-            QVector<Node*> ns = VariableDeclarations(blockName);
-            for (Node* n: ns)
-                decl.append(n);
+        while (m_currentToken.m_type==TokenType::ID || m_currentToken.m_type == TokenType::CONSTANT) {
+
+            if (m_currentToken.m_type == TokenType::CONSTANT) {
+                ConstDeclaration();
+            }
+            else {
+
+                QVector<Node*> ns = VariableDeclarations(blockName);
+
+                for (Node* n: ns)
+                    decl.append(n);
+            }
             Eat(TokenType::SEMI);
         }
     }
@@ -1538,6 +1730,8 @@ QVector<Node*> Parser::Declarations(bool isMain, QString blockName)
         Eat(TokenType::SEMI);
         Node* block = nullptr;
         NodeProcedureDecl* procDecl = new NodeProcedureDecl(tok, procName, paramDecl, block, type);
+        AppendComment(procDecl);
+
         if (m_procedures[procName]!=nullptr)
             procDecl->m_isUsed = m_procedures[procName]->m_isUsed;
         m_procedures[procName] = procDecl;
@@ -1581,12 +1775,41 @@ QVector<Node*> Parser::Declarations(bool isMain, QString blockName)
     return decl;
 }
 
+QVector<Node*> Parser::ConstDeclaration()
+{
+    Eat(TokenType::CONSTANT);
+    QString name = m_currentToken.m_value;
+    Eat();
+    Eat(TokenType::COLON);
+    QString type = "";
+    if (m_currentToken.m_type == TokenType::ADDRESS)
+        type="address";
+    if (m_currentToken.m_type == TokenType::BYTE)
+        type="byte";
+    if (m_currentToken.m_type == TokenType::INTEGER)
+        type="integer";
+    if (type=="") {
+        ErrorHandler::e.Error("Unknown or illegal type when defining constant of type: '"+m_currentToken.m_value+"' ("+m_currentToken.getType()+")<br>Allowed types are : <b>address, byte, integer.</b> ",m_currentToken.m_lineNumber);
+    }
+    Eat();
+    Eat(TokenType::EQUALS);
+    int value = GetParsedInt();
+
+    m_symTab->m_constants[name.toUpper()] = new Symbol(name.toUpper(),type.toUpper(),value);
+    return QVector<Node*>();
+}
+
+
+
 QVector<Node *> Parser::VariableDeclarations(QString blockName)
 {
     if (blockName!="")
         m_symTab->SetCurrentProcedure(blockName+"_");
     else
         m_symTab->SetCurrentProcedure("");
+
+
+
 
     QVector<Node*> vars;
     vars.append(new NodeVar(m_currentToken));
@@ -1595,10 +1818,14 @@ QVector<Node *> Parser::VariableDeclarations(QString blockName)
     syms.append(new Symbol(m_currentToken.m_value,""));
     m_symTab->Define(syms.last() ,false);
     Eat(TokenType::ID);
+
+
+
     // Make sure that ALL are defined!
     while (m_currentToken.m_type == TokenType::COMMA) {
         Eat(TokenType::COMMA);
         vars.append(new NodeVar(m_currentToken));
+        AppendComment(vars[vars.count()-1]);
 
         syms.append(new Symbol(m_currentToken.m_value,""));
         m_symTab->Define(syms.last() ,false);
@@ -1647,22 +1874,22 @@ QVector<Node *> Parser::VariableDeclarations(QString blockName)
     return var_decleratons;
 }
 
+
+
 Node *Parser::TypeSpec()
 {
     Token t = m_currentToken;
 
     if (m_currentToken.m_type == TokenType::INCBIN || m_currentToken.m_type == TokenType::INCSID || m_currentToken.m_type == TokenType::INCNSF) {
         Eat();
+//        qDebug() << Node::m_staticBlockInfo.m_blockPos;
         Eat(TokenType::LPAREN);
         QString binFile = m_currentToken.m_value;
         Eat();
         QString position ="";
         if (m_currentToken.m_type==TokenType::COMMA) {
             Eat();
-            position = m_currentToken.m_value;
-            if (position=="")
-                position="$"+QString::number(m_currentToken.m_intVal,16);
-            Eat();
+            position = Util::numToHex(GetParsedInt());
         }
         Eat(TokenType::RPAREN);
 
@@ -1698,10 +1925,14 @@ Node *Parser::TypeSpec()
             Eat();
             Eat(TokenType::LPAREN);
             while (m_currentToken.m_type!=TokenType::RPAREN) {
-                data << "$0"+QString::number(getIntVal(m_currentToken),16);//QString::number(m_currentToken.m_intVal);
-                Eat();
-                if (m_currentToken.m_type==TokenType::COMMA)
+                data << "$0"+QString::number(GetParsedInt(),16);//QString::number(m_currentToken.m_intVal);
+                //data << "$0"+QString::number(GetParsedInt(),16);//QString::number(m_currentToken.m_intVal);
+                if (m_currentToken.m_type!=TokenType::RPAREN) {
+
                     Eat();
+                    if (m_currentToken.m_type==TokenType::COMMA)
+                        Eat();
+                }
             }
             Eat(TokenType::RPAREN);
             if (count!=data.count() && count!=0) {
@@ -1718,11 +1949,11 @@ Node *Parser::TypeSpec()
         }
 
         QString position = "";
-        if (m_currentToken.m_type==TokenType::AT) {
-            Eat(TokenType::AT);
-            position = m_currentToken.getNumAsHexString();
-
-            Eat(m_currentToken.m_type);
+        if (m_currentToken.m_type==TokenType::AT || m_currentToken.m_type==TokenType::ABSOLUT) {
+            Eat();
+            //position = m_currentToken.getNumAsHexString();
+            position = Util::numToHex(GetParsedInt());
+           // Eat(m_currentToken.m_type);
         }
         QStringList flags;
         if (m_currentToken.m_type==TokenType::CHIPMEM) {
@@ -1776,6 +2007,17 @@ Node *Parser::TypeSpec()
     Eat();
     // Is regular single byte / pointer
 
+    QString position = "";
+    if (m_currentToken.m_type==TokenType::AT || m_currentToken.m_type==TokenType::ABSOLUT) {
+        Eat();
+        position = m_currentToken.getNumAsHexString();
+
+        Eat(m_currentToken.m_type);
+        NodeVarType* nt = new NodeVarType(t,position);
+        nt->m_position = position;
+        nt->m_flag = 1;
+        return nt;
+    }
 
 
     QString initVal = "";
@@ -1784,22 +2026,8 @@ Node *Parser::TypeSpec()
 //        data << "$0"+QString::number(getIntVal(m_currentToken),16);//QString::number(m_currentToken.m_intVal);
 
         initVal = Util::numToHex(GetParsedInt());
-//        qDebug() << m_currentToken.getType();
-  //      Eat();
-/*        if (initVal.count()>0 && initVal[0]=='@' ) {
-            ErrorHandler::e.Error("Could not find preprocessor : " + initVal);
-        }*/
-/*        if (initVal=="") {
-            bool ok=true;
-            initVal = QString::number(m_currentToken.m_intVal);
-        }else
-        {
-            ErrorHandler::e.Error("Unknown initialization value : " + initVal, m_currentToken.m_lineNumber);
 
-        }
-*/
 
-  //      Eat(m_currentToken.m_type);
 
     }
 
@@ -1895,22 +2123,74 @@ Node *Parser::InlineAssembler()
     return n;
 }
 
+void Parser::HandleImportChar()
+{
+    int ln = m_currentToken.m_lineNumber;
+    QString inFile = m_currentDir+"/"+ m_currentToken.m_value;
+    Eat(TokenType::STRING);
+    QString outFile =m_currentDir+"/"+ m_currentToken.m_value;
+    Eat(TokenType::STRING);
+    int param1 = m_currentToken.m_intVal;
+    Eat(TokenType::INTEGER_CONST);
+    int param2 = m_currentToken.m_intVal;
+    Eat(TokenType::INTEGER_CONST);
+
+    LImage* imgB = LImageIO::Load(outFile);
+
+    LImage* imgA = nullptr;
+    if (inFile.toLower().endsWith(".bin") || inFile.toLower().endsWith(".chr")) {
+        imgA = LImageFactory::Create(imgB);
+        QFile f(inFile);
+        f.open(QFile::ReadOnly);
+        imgA->ImportBin(f);
+        f.close();
+    }
+    if (inFile.toLower().endsWith(".flf"))
+      imgA = LImageIO::Load(inFile);
+
+    if (imgA == nullptr) {
+        ErrorHandler::e.Error("Importing char error : unknown filetype for '"+inFile +"'");
+    }
+
+//    qDebug() << "HERE";
+    imgB->CopySingleChar(imgA, param1, param2);
+
+    LImageIO::Save(outFile,imgB);
+
+
+}
+
 void Parser::HandleExport()
 {
     int ln = m_currentToken.m_lineNumber;
     QString inFile = m_currentDir+"/"+ m_currentToken.m_value;
-    Eat();
+    Eat(TokenType::STRING);
     QString outFile =m_currentDir+"/"+ m_currentToken.m_value;
-    Eat();
-    int param = m_currentToken.m_intVal;
-    Eat();
+    Eat(TokenType::STRING);
+
+
+
+    int param1 = m_currentToken.m_intVal;
+    Eat(TokenType::INTEGER_CONST);
+    int param2 = 0;
+    if (m_currentToken.m_type==TokenType::INTEGER_CONST) {
+        param2 = m_currentToken.m_intVal;
+        Eat(TokenType::INTEGER_CONST);
+
+    }
+    else {
+        param2 = param1;
+        param1 = 0;
+    }
+
 
     if (!QFile::exists(inFile)) {
         ErrorHandler::e.Error("File not found : "+inFile,ln);
     }
     LImage* img = LImageIO::Load(inFile);
     if (dynamic_cast<CharsetImage*>(img)!=nullptr) {
-        img->m_exportParams["End"] = param;
+        img->m_exportParams["Start"] = param1;
+        img->m_exportParams["End"] = param2;
     }
     if (QFile::exists(outFile))
         QFile::remove(outFile);
@@ -1927,6 +2207,43 @@ void Parser::HandleExport()
     }
     else
         img->ExportBin(file);
+
+
+
+
+    file.close();
+
+}
+
+void Parser::HandleVBMExport()
+{
+    int ln = m_currentToken.m_lineNumber;
+    QString inFile = m_currentDir+"/"+ m_currentToken.m_value;
+    Eat(TokenType::STRING);
+    QString outFile =m_currentDir+"/"+ m_currentToken.m_value;
+    Eat(TokenType::STRING);
+    int param1 = m_currentToken.m_intVal;
+    Eat(TokenType::INTEGER_CONST);
+    int param2 = m_currentToken.m_intVal;
+    Eat(TokenType::INTEGER_CONST);
+    int param3 = m_currentToken.m_intVal;
+
+    if (!QFile::exists(inFile)) {
+        ErrorHandler::e.Error("File not found : "+inFile,ln);
+    }
+    LImage* img = LImageIO::Load(inFile);
+    if (QFile::exists(outFile))
+        QFile::remove(outFile);
+
+    QFile file(outFile);
+
+    file.open(QFile::WriteOnly);
+    img->m_silentExport = true;
+
+    img->VBMExport(file,param1,param2,param3);
+
+
+
 
     file.close();
 

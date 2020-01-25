@@ -34,7 +34,7 @@
 #include <QPointF>
 #include <QLabel>
 #include <source/toolbox.h>
-
+#include <QApplication>
 
 
 class WorkerThread : public QThread {
@@ -61,7 +61,7 @@ public:
     void Park();
     void Continue();
 
-    void SetCurrentImage(ImageWorker* work, Toolbox* tb, QLabel* lbl) {
+    void SetCurrentImage(ImageWorker* work, Toolbox* tb) {
         m_work = work;
         m_toolBox = tb;
         //m_imgLabel = lbl;
@@ -72,7 +72,9 @@ public:
     LImageQImage* m_grid=nullptr;
     void CreateGrid();
 
-    QPointF m_currentPos, m_prevPos;
+    float m_panningScale = 2;
+
+    QPointF m_currentPos, m_prevPos, m_delta;
     int m_currentButton = 0;
     float m_zoom = 1;
     bool m_drawGrid = false;

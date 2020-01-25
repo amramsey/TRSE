@@ -27,7 +27,7 @@
 #include <QByteArray>
 #include <QVector>
 #include <QKeyEvent>
-
+#include "source/LeLib/limage/limagemetachunk.h"
 
 class CharmapLevel {
 public:
@@ -57,11 +57,8 @@ public:
         m_CharData.fill(0);
         m_ColorData.fill(0);
 
-        if (m_ExtraData.size()>=3) {
-            m_ExtraData[0] = 0;
-            m_ExtraData[1] = 1; // Colors
-            m_ExtraData[2] = 2;
-        }
+        for (int i=0;i<m_ExtraData.size();i++)
+            m_ExtraData[i]=i;
         Clear();
     }
 
@@ -93,6 +90,8 @@ public:
     int dataSize() const;
     int levelSize() const;
     int totalSize() const;
+
+    uchar m_displayMultiColor = 1;
 
     void Calculate()
     {
@@ -132,6 +131,7 @@ public:
         ba[9] = m_useColors==true ? 1:0;
         ba[10] = (uint)m_colSizex;
         ba[11] = (uint)m_colSizey;
+        ba[12] = (uint)m_displayMultiColor;
         return ba;
     }
 
@@ -154,6 +154,8 @@ public:
         m_dataChunks = (uchar)ba[6];
         m_dataChunkSize = (uchar)ba[7];
         m_extraDataSize = (uchar)ba[8];
+
+        m_displayMultiColor = ba[12];
 
         m_useColors = ((uchar)ba[9]==1);
 
@@ -186,12 +188,27 @@ public:
     CharmapGlobalData m_meta;
 
 
+    void SetBank(int bnk) override {
+        m_footer.set(LImageFooter::POS_CURRENT_BANK,bnk);
+        if (m_charset!=nullptr)
+            m_charset->SetBank(bnk);
+    }
+
 
     void SetLevel(QPoint f);
     ImageLevelEditor(LColorList::Type t);
 //    void Initialize(CharmapGlobalData meta);
     void Initialize() override;
 
+    QString GetCurrentDataString() override;
+
+
+
+    virtual bool isNes() override {
+        if (m_charset!=nullptr)
+            return m_charset->isNes();
+        return false;
+    }
 
     void SetColor(uchar col, uchar idx) override;
     void Clear() override;
@@ -215,11 +232,12 @@ public:
     QVector<QPixmap> CreateIcons();
 
     QString getMetaInfo() override;
+    void ExportBin(QFile &file) override;
 
     void setPixel(int x, int y, unsigned int color) override;
     unsigned int getPixel(int x, int y) override;
     void CopyFrom(LImage* mc) override;
-    void setMultiColor(bool doSet) override {}
+    bool isMultiColor() override { return m_meta.m_displayMultiColor; }
 
     void onFocus() override;
 
@@ -228,6 +246,15 @@ public:
     bool PixelToPos(int x, float y, int& pos, int w, int h);
 
     void Fix() override; // Fix data doccuption
+
+    void setMultiColor(bool doSet) override;
+    virtual int getGridWidth() override {
+        return m_meta.m_width;
+    }
+    virtual int getGridHeight()  override{
+        return m_meta.m_height;
+    }
+
 
 };
 

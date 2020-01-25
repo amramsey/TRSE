@@ -63,6 +63,7 @@ void DialogTRSESettings::FillFromIni()
     ui->leC1541->setText(m_ini->getString("c1541"));
     ui->leExomizer->setText(m_ini->getString("exomizer"));
     ui->leTinyCrunch->setText(m_ini->getString("tinycrunch"));
+    ui->leCursorWidth->setText(QString::number((int)m_ini->getdouble("editor_cursor_width")));
     ui->chkAutoInject->setChecked(m_ini->getdouble("auto_inject")==1.0);
 //    if (ui->cmbPalette->currentText()=="Dark")
     if (m_ini->getdouble("windowpalette")==0)
@@ -98,6 +99,7 @@ void DialogTRSESettings::FillFromIni()
     ui->leUserDefined->setText(m_ini->getString("user_defined_command"));
 
     ui->cmbAssembler->setCurrentText(m_ini->getString("assembler"));
+    ui->cmbPainter->setCurrentIndex((int)m_ini->getdouble("image_painter"));
 
 }
 
@@ -106,7 +108,7 @@ void DialogTRSESettings::FillToIni()
 {
 
 
-
+    m_ini->setFloat("editor_cursor_width",ui->leCursorWidth->text().toInt());
     m_ini->setString("vasmm_target_dir", ui->le68kTargetDir->text());
     m_ini->setString("vasmm", ui->leVasmm->text());
     m_ini->setString("dasm", ui->leDasm->text());
@@ -133,6 +135,7 @@ void DialogTRSESettings::FillToIni()
 
     m_ini->setFloat("hide_exomizer_footprint", ui->chkExomizerFootprint->isChecked()?1:0);
 
+    m_ini->setFloat("image_painter",ui->cmbPainter->currentIndex());
 
     m_ini->setFloat("auto_inject", ui->chkAutoInject->isChecked()?1:0);
     m_ini->setString("user_defined_command",ui->leUserDefined->text());

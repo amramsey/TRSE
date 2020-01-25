@@ -27,21 +27,24 @@
 #include "source/LeLib/limage/charsetimage.h"
 #include "source/messages.h"
 #include "source/dialogselectcharset.h"
+#include <QTimer>
 
 FormImageEditor::FormImageEditor(QWidget *parent) :
     TRSEDocument(parent),
     ui(new Ui::Formimageeditor)
 {
     ui->setupUi(this);
-    m_toolBox.Initialize(ui->lyToolbox_3);
+    m_toolBox.Initialize(ui->lyToolbox_3,width());
 
     UpdatePalette();
     m_grid.Initialize(320,200);
     m_fileExtension = "flf";
     Data::data.currentColor=1;
-    m_grid.ApplyToLabel(ui->lblGrid);
+    //m_grid.ApplyToLabel(ui->lblGrid);
     updateCharSet();
-    ui->lblGrid->setVisible(ui->chkGrid->isChecked());
+
+
+    //ui->lblGrid->setVisible(ui->chkGrid->isChecked());
 
 
 /*    ui->lblImage->setMouseTracking(true);
@@ -57,26 +60,59 @@ FormImageEditor::FormImageEditor(QWidget *parent) :
     ui->lblImage->m_work = &m_work;
     ui->lblImage->setMouseTracking(true);
     ui->lblImage->m_updateThread = &m_updateThread;
+
+    ui->lblImageQt->m_work = &m_work;
+    ui->lblImageQt->setMouseTracking(true);
+    ui->lblImageQt->m_updateThread = &m_updateThread;
+
 //    void EmitMouseMove();
 
-    connect(ui->lblImage, SIGNAL(EmitMouseMove()), this, SLOT(onImageMouseEvent()));
 
-    m_updateThread.SetCurrentImage(&m_work, &m_toolBox, getLabelImage());
+    m_updateThread.SetCurrentImage(&m_work, &m_toolBox);
 
+
+//    ui->lblImage->initializeGL();
 //    setFocusPolicy(Qt::StrongFocus);
 
-
+//    ui->lblImage->setFocusPolicy(Qt::StrongFocus);
+  //  setFocusPolicy(Qt::StrongFocus);
+    installEventFilter(this);
+    ui->tblData->setItemDelegate(new ByteDelegate());
 }
 
 void FormImageEditor::InitDocument(WorkerThread *t, CIniFile *ini, CIniFile *iniProject) {
-//    m_updateThread = t;
     m_iniFile = ini;
     m_projectIniFile = iniProject;
-//    ui->lblImage->m_updateThread = t;
-    //ui->lblGrid->m_updateThread = t;
     m_updateThread.m_grid = &m_grid;
-//    m_grid.CreateGrid(40,25,m_updateThread.m_gridColor,4, 1, QPoint(0,0));
+
+    m_painterType = m_iniFile->getdouble("image_painter")==0?OpenGL:QtPaint;
+
+    if (m_work.m_currentImage!=nullptr) {
+        bool is = m_work.m_currentImage->m_image->isMultiColor();
+        ui->chkDisplayMulticolor->setChecked(is);
+        ui->lblName->setText(LImage::TypeToString(m_work.m_currentImage->m_image->m_type));
+
+    }
+
+
     UpdateGrid();
+    ui->chkBackgroundArea->setVisible(false);
+
+    if (m_painterType==QtPaint) {
+        delete ui->lblImage;
+        connect(ui->lblImageQt, SIGNAL(EmitMouseMove()), this, SLOT(onImageMouseEvent()));
+        connect(ui->lblImageQt, SIGNAL(EmitMouseRelease()), this, SLOT(onImageMouseReleaseEvent()));
+        connect(ui->lblImageQt, SIGNAL(EmitSwapDisplayMode()), this, SLOT(onSwapDisplayMode()));
+    }
+    else {
+        delete ui->lblImageQt;
+
+        connect(ui->lblImage, SIGNAL(EmitMouseMove()), this, SLOT(onImageMouseEvent()));
+        connect(ui->lblImage, SIGNAL(EmitMouseRelease()), this, SLOT(onImageMouseReleaseEvent()));
+        connect(ui->lblImage, SIGNAL(EmitSwapDisplayMode()), this, SLOT(onSwapDisplayMode()));
+
+
+    }
 
 
 }
@@ -93,55 +129,82 @@ void FormImageEditor::onImageMouseEvent()
         UpdateSpriteImages();
     if (dynamic_cast<LImageMetaChunk*>(m_work.m_currentImage->m_image)!=nullptr)
         UpdateSpriteImages();
-//    if (dynamic_cast<LImageCharsetRegular*>(m_work.m_currentImage->m_image)!=nullptr)
-  //      updateCharSet();
 
-    //    updateCharSet();
     updateSingleCharSet();
-//    UpdateGrid();
+
+    //showDetailCharButtons(m_prefMode!=CharsetImage::Mode::FULL_IMAGE);
+
+    // This will update the current cell
+//    if (dynamic_cast<LImageMetaChunk*>(m_work.m_currentImage->m_image)==nullptr)
+  //      if (dynamic_cast<ImageLevelEditor*>(m_work.m_currentImage->m_image)==nullptr)
+
+
+//    if (dynamic_cast<CharsetImage*>(m_work.m_currentImage->m_image)!=nullptr)
+    if (m_work.m_currentImage->m_image->m_updateCharsetPosition)
+    if (ui->lstCharMap->currentItem()!=nullptr) {
+        int i = ui->lstCharMap->currentItem()->data(Qt::UserRole).toInt();
+        CharsetImage* charmap = m_work.m_currentImage->m_image->getCharset();
+
+        if (charmap->m_currentChar!=i) {
+/*            i = charmap->m_currentChar;
+            int x = i%charmap->m_charWidthDisplay;
+            int y = (i)/charmap->m_charWidthDisplay;
+            ui->lstCharMap->setCurrentCell(y,x);*/
+            UpdateCurrentCell();
+        }
+
+    }
+    showDetailCharButtons();
+
+//    qDebug() << m_work.m_currentImage->m_image->m_footer.isFullscreen();
 }
+
+void FormImageEditor::onImageMouseReleaseEvent()
+{
+    AbstractImageEditor* a = dynamic_cast<AbstractImageEditor*>(getCurrentPainter());
+
+    updateCharSet();
+    if (a->m_prevButton==2  && (QApplication::keyboardModifiers() & Qt::ControlModifier) && GetFooterData(LImageFooter::POS_DISPLAY_CHAR)==0) {
+        SelectFromLeftClick();
+    }
+
+}
+
+void FormImageEditor::SelectFromLeftClick()
+{
+    m_prefMode = m_keepMode;
+    m_work.m_currentImage->m_image->m_currentChar =
+            m_work.m_currentImage->m_image->getCharAtPos(
+                (QPoint(m_updateThread.m_currentPos.x(),m_updateThread.m_currentPos.y())),
+                m_updateThread.m_zoom,m_updateThread.m_zoomCenter);
+    //showDetailCharButtons(true);
+    SetSingleCharsetEdit();
+    Data::data.forceRedraw = true;
+    onImageMouseEvent();
+}
+
 
 FormImageEditor::~FormImageEditor()
 {
     delete ui;
 }
 
-void FormImageEditor::mousePressEvent(QMouseEvent *e)
-{
-/*    if(e->buttons() == Qt::LeftButton) {
-
-        m_work.m_currentImage->AddUndo();
-    }
-    if(e->buttons() == Qt::RightButton)
-        m_updateThread.m_currentButton = 2;
-    if(e->buttons() == Qt::LeftButton) {
-        m_updateThread.m_currentButton = 1;
-    }
-*/
-}
-
-void FormImageEditor::mouseReleaseEvent(QMouseEvent *e)
-{
-/*    if (m_updateThread.m_currentButton==2)
-        m_updateThread.m_currentButton = 0;
-    else
-        m_updateThread.m_currentButton = -1;
-*/
-    updateCharSet();
-}
-
 void FormImageEditor::wheelEvent(QWheelEvent *event)
 {
     float f = event->delta()/100.0f;
 
-    if (QApplication::keyboardModifiers() & Qt::ControlModifier) {
+    if (QApplication::keyboardModifiers() & Qt::ShiftModifier) {
         m_updateThread.m_zoom -=f*0.05;
         m_updateThread.m_zoom = std::min(m_updateThread.m_zoom, 1.0f);
         m_updateThread.m_zoom = std::max(m_updateThread.m_zoom, 0.1f);
         float t = 0.0f;
         m_updateThread.m_zoomCenter = (m_updateThread.m_zoomCenter*t + (1-t)*m_updateThread.m_currentPos);//*(2-2*m_zoom);
-        Data::data.redrawOutput = true;
+      //  m_updateThread.m_zoomCenter = (m_updateThread.m_currentPos);//*(2-2*m_zoom);
         UpdateGrid();
+        emit onImageMouseEvent();
+        Data::data.forceRedraw = true;
+        Data::data.Redraw();
+
 //        m_grid.CreateGrid(40,25,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
 //        m_grid.CreateGrid(m_work.m_currentImage->m_image->m_charWidthDisplay,m_work.m_currentImage->m_image->m_charHeightDisplay,m_updateThread.m_gridColor,4, m_updateThread.m_zoom, QPoint(m_updateThread.m_zoomCenter.x(), m_updateThread.m_zoomCenter.y()));
 
@@ -160,6 +223,8 @@ void FormImageEditor::wheelEvent(QWheelEvent *event)
 void FormImageEditor::keyPressEvent(QKeyEvent *e)
 {
     TRSEDocument::keyPressEvent(e);
+
+
     //    qDebug() << (QApplication::keyboardModifiers() & Qt::ShiftModifier) << " + "  << rand()%100;
         if (e->key()==Qt::Key_Shift) {
             m_toolBox.m_current->m_type = 1;
@@ -167,12 +232,20 @@ void FormImageEditor::keyPressEvent(QKeyEvent *e)
             Data::data.forceRedraw = true;
         }
 
-
-
+        if ((QApplication::keyboardModifiers() & Qt::ControlModifier)) {
+            if (e->key()==Qt::Key_C)
+                on_btnCharsetCopy_clicked();
+            if (e->key()==Qt::Key_V)
+                on_btnCharsetPaste_clicked();
+        }
 
         if (!(QApplication::keyboardModifiers() & Qt::ControlModifier)) {
+            int j = 0;
+            if (QApplication::keyboardModifiers() & Qt::ShiftModifier)
+                j = 4;
+            float scale = m_updateThread.m_zoom*(1+j)*4;
             if (e->key()==Qt::Key_D) {
-                m_updateThread.m_zoomCenter.setX(m_updateThread.m_zoomCenter.x() + 1);
+                m_updateThread.m_zoomCenter.setX(m_updateThread.m_zoomCenter.x() + 1*scale);
                 emit onImageMouseEvent();
                 Data::data.forceRedraw = true;
                 Data::data.Redraw();
@@ -181,20 +254,29 @@ void FormImageEditor::keyPressEvent(QKeyEvent *e)
                 OpenSelectCharset();
                 return;
             }
+
+            if (e->key()==Qt::Key_P) {
+                ui->chkPaintSeparately->click();
+                emit onImageMouseEvent();
+                return;
+            }
+
+
+
             if (e->key()==Qt::Key_A) {
-                m_updateThread.m_zoomCenter.setX(m_updateThread.m_zoomCenter.x() - 1);
+                m_updateThread.m_zoomCenter.setX(m_updateThread.m_zoomCenter.x() - 1*scale);
                 emit onImageMouseEvent();
                 Data::data.forceRedraw = true;
                 Data::data.Redraw();
             }
             if (e->key()==Qt::Key_W) {
-                m_updateThread.m_zoomCenter.setY(m_updateThread.m_zoomCenter.y() - 1);
+                m_updateThread.m_zoomCenter.setY(m_updateThread.m_zoomCenter.y() - 1*scale);
                 emit onImageMouseEvent();
                 Data::data.forceRedraw = true;
                 Data::data.Redraw();
             }
             if (e->key()==Qt::Key_S) {
-                m_updateThread.m_zoomCenter.setY(m_updateThread.m_zoomCenter.y() + 1);
+                m_updateThread.m_zoomCenter.setY(m_updateThread.m_zoomCenter.y() + 1*scale);
                 emit onImageMouseEvent();
                 Data::data.forceRedraw = true;
                 Data::data.Redraw();
@@ -235,18 +317,25 @@ void FormImageEditor::keyPressEvent(QKeyEvent *e)
             ui->chkDisplayMulticolor->setChecked(is);
 
             Data::data.Redraw();
+            onImageMouseEvent();
         }
 
         if (e->key() == Qt::Key_Z  && !(QApplication::keyboardModifiers() & Qt::ControlModifier)) {
                 ui->chkGrid->setChecked(!ui->chkGrid->isChecked());
                 //ui->lblGrid->setVisible(ui->chkGrid->isChecked());
                 m_updateThread.m_drawGrid=!m_updateThread.m_drawGrid;
+                SetFooterData(LImageFooter::POS_DISPLAY_GRID,m_updateThread.m_drawGrid);
+
+                Data::data.Redraw();
+                emit onImageMouseEvent();
 
         }
         if (e->key() == Qt::Key_X) {
             m_work.m_currentImage->m_image->renderPathGrid =!m_work.m_currentImage->m_image->renderPathGrid;
             ui->chkBackgroundArea->setChecked(m_work.m_currentImage->m_image->renderPathGrid);
         }
+
+
 
         emit onImageMouseEvent();
         Data::data.forceRedraw = true;
@@ -266,24 +355,40 @@ void FormImageEditor::keyReleaseEvent(QKeyEvent *e)
 
 void FormImageEditor::UpdateImage()
 {
-//    return;
-//    m_updateThread.m_
-   // m_updateThread.m_pixMapImage.fill(QColor(0,255,0));
+
+    QElapsedTimer et;
+    et.start();
+
+    if (m_painterType==OpenGL) {
+        QImage txt = m_updateThread.m_pixMapImage.toImage();
+
+        ui->lblImage->setVisible(true);
+        ui->lblImage->setTexture(txt,*m_updateThread.m_grid->m_qImage);
+
+        m_documentIsChanged = ui->lblImage->m_imageChanged;
+
+        if (!ui->tblData->hasFocus())
+            ui->lblImage->setFocus();
+
+    } else
+    {
+
+        ui->lblImageQt->setVisible(true);
+        //ui->lblImage->setTexture(txt,*m_updateThread.m_grid->m_qImage);
+//        ui->lblImageQt->setPixmap(QPixmap::fromImage(txt));
+        m_documentIsChanged = ui->lblImageQt->m_imageChanged;
 
 
-    ui->lblImage->setVisible(true);
-    ui->lblImage->setScaledContents(true);
-//        ui->lblImage->setPixmap(m_updateThread.m_pixMapImage.scaled(320, 320, Qt::IgnoreAspectRatio, Qt::FastTransformation));
-    ui->lblImage->setPixmap(m_updateThread.m_pixMapImage.scaled(ui->lblImage->size().width()-16, ui->lblImage->size().height()-16, Qt::IgnoreAspectRatio, Qt::FastTransformation));
-//    ui->lblImage->setPixmap(m_updateThread.m_pixMapImage.scaled(16, 16, Qt::IgnoreAspectRatio, Qt::FastTransformation));
-  //  ui->lblImage->setPixmap(m_updateThread.m_pixMapImage);
-    ui->lblImage->setMaximumHeight(ui->lblImage->size().width()/(320/200.0));
+        ui->lblImageQt->setScaledContents(true);
+        ui->lblImageQt->setPixmap(m_updateThread.m_pixMapImage.scaled(ui->lblImageQt->size().width()-16, ui->lblImageQt->size().height()-16, Qt::IgnoreAspectRatio, Qt::FastTransformation));
+//        ui->lblImage->setMaximumHeight(ui->lblImage->size().width()/(320/200.0));
 
 
-    m_documentIsChanged = ui->lblImage->m_imageChanged;
 
-    if (!ui->tblData->hasFocus())
-        ui->lblImage->setFocus();
+        if (!ui->tblData->hasFocus())
+            ui->lblImageQt->setFocus();
+
+    }
 
 
 
@@ -296,22 +401,38 @@ void FormImageEditor::UpdateImage()
     UpdateGrid();
 
     if (Data::data.redrawFileList) {
-        //m_work.UpdateListView(ui->lstImages);
         Data::data.redrawFileList = false;
     }
 
+}
 
+void FormImageEditor::UpdateButtonIcons()
+{
+    if (GetFooterData(LImageFooter::POS_DISPLAY_CHAR)==0) // fullscreen
+        ui->btnCharsetFull->setIcon(QPixmap(":resources/images/charset_icons/btn-1-FullView.png"));
+    else
+        ui->btnCharsetFull->setIcon(QPixmap(":resources/images/charset_icons/btn-2-CharView.png"));
+
+    if (GetFooterData(LImageFooter::POS_CURRENT_DISPLAY_REPEAT)==0) // fullscreen
+        ui->btnRepeating->setIcon(QPixmap(":resources/images/charset_icons/btn-3-RepeatTile.png"));
+    else
+        ui->btnRepeating->setIcon(QPixmap(":resources/images/charset_icons/btn-4-NoRepeatTile.png"));
+
+    ui->btnCharsetFull->setIconSize(QSize(32,32));
+    ui->btnRepeating->setIconSize(QSize(32,32));
 }
 
 void FormImageEditor::UpdateGrid()
 {
     if (m_work.m_currentImage==nullptr)
         return;
-
+/*    if (!m_updateThread.m_drawGrid)
+        return;
+*/
     m_grid.Initialize(m_updateThread.m_gridScale *m_work.m_currentImage->m_image->m_width,m_updateThread.m_gridScale*m_work.m_currentImage->m_image->m_height);
 //    qDebug() << m_work.m_currentImage->m_image->m_scaleX;
     m_updateThread.CreateGrid();
-    m_grid.ApplyToLabel(ui->lblGrid);
+//    m_grid.ApplyToLabel(ui->lblGrid);
 
 }
 
@@ -327,21 +448,25 @@ void FormImageEditor::Load(QString filename)
     LImage* img = LImageIO::Load(filename);
     if (img==nullptr)
         return;
-    m_work.New(img, filename);
-
-
+    if (!m_isInitialized)
+       m_work.New(img, filename);
+    else m_work.m_currentImage->m_image = img;
+    //m_prefMode = CharsetImage::Mode::FULL_IMAGE;
     PrepareImageTypeGUI();
-    if (QFile::exists(m_projectIniFile->getString("charset_"+m_currentFileShort))) {
+/*    if (QFile::exists(m_projectIniFile->getString("charset_"+m_currentFileShort))) {
         if (dynamic_cast<ImageLevelEditor*>(img)!=nullptr || dynamic_cast<C64FullScreenChar*>(img)!=nullptr ||dynamic_cast<LImageMetaChunk*>(img)!=nullptr)
             img->LoadCharset(m_projectIniFile->getString("charset_"+m_currentFileShort),0);
 
         updateCharSet();
     }
-
+*/
     Data::data.redrawFileList = true;
     Data::data.Redraw();
     UpdatePalette();
+    updateCharSet();
     FillCMBColors();
+
+    m_currentFilename = filename;
 
     m_work.m_currentImage->m_image->BuildData(ui->tblData, m_projectIniFile->getStringList("data_header"));
 
@@ -352,7 +477,7 @@ void FormImageEditor::Load(QString filename)
     ui->cmbEffect->clear();
     ui->cmbEffect->addItems(m_imageEffects.getStringList());
 
-    ui->chkDisplayMulticolor->setChecked(m_work.m_currentImage->m_image->isMultiColor());
+//    ui->chkDisplayMulticolor->setChecked(m_work.m_currentImage->m_image->isMultiColor());
 
     QString s = "";
     QStringList lst = m_projectIniFile->getStringList("data_header_"+m_currentFileShort);
@@ -362,23 +487,66 @@ void FormImageEditor::Load(QString filename)
     s.remove(s.count()-1,1);
     ui->leHeaders->setText(s);
 
+    ui->lblName->setText(LImage::TypeToString(m_work.m_currentImage->m_image->m_type));
     m_work.m_currentImage->m_image->BuildData(ui->tblData,lst);
 
 
-    if (dynamic_cast<LImageSprites*>(m_work.m_currentImage->m_image)!=nullptr) {
-        Messages::messages.DisplayMessage(Messages::messages.OLD_SPRITE_FILE);
-    }
+    ui->chkGrid->setChecked(GetFooterData(LImageFooter::POS_DISPLAY_GRID));
+    on_chkGrid_clicked(GetFooterData(LImageFooter::POS_DISPLAY_GRID));
 
-//    if (dynamic_cast<LImageNES*>(m_work.m_currentImage->m_image)!=nullptr) {
-     if (m_work.m_currentImage->m_image->m_type==LImage::NES) {
-        on_cmbNesPalette_currentIndexChanged(0);
-    }
+    ui->chkPaintSeparately->setChecked(GetFooterData(LImageFooter::POS_DOUBLE_PAINT));
+    on_chkPaintSeparately_stateChanged(GetFooterData(LImageFooter::POS_DOUBLE_PAINT));
 
-    onImageMouseEvent();
+//    m_prefMode = (CharsetImage::Mode)GetFooterData(LImageFooter::POS_CURRENT_MODE);
+  //  m_keepMode = (CharsetImage::Mode)GetFooterData(LImageFooter::POS_KEEP_MODE);
+
+    ui->cmbNesPalette->setCurrentIndex(GetFooterData(LImageFooter::POS_CURRENT_PALETTE));
+    on_cmbNesPalette_currentIndexChanged(GetFooterData(LImageFooter::POS_CURRENT_PALETTE));
+    on_cmbNesPalette_currentIndexChanged(GetFooterData(LImageFooter::POS_CURRENT_PALETTE));
+
+    ui->cmbCharX->setCurrentIndex(GetFooterData(LImageFooter::POS_CURRENT_DISPLAY_X)-1);
+    ui->cmbCharY->setCurrentIndex(GetFooterData(LImageFooter::POS_CURRENT_DISPLAY_Y)-1);
+
+//    qDebug() << GetFooterData(LImageFooter::POS_DISPLAY_MULTICOLOR);
+    ui->chkDisplayMulticolor->setChecked(GetFooterData(LImageFooter::POS_DISPLAY_MULTICOLOR));
+    on_chkDisplayMulticolor_stateChanged(GetFooterData(LImageFooter::POS_DISPLAY_MULTICOLOR));
+//    if (!dynamic_cast<ImageLevelEditor*>(m_work.m_currentImage->m_image))
+  //      m_work.m_currentImage->m_image->setMultiColor(ui->chkDisplayMulticolor->isChecked());
+
+
+
+    int bank = GetFooterData(LImageFooter::POS_CURRENT_BANK);
+//    ui->cmbBank->setCurrentIndex(0);
+//    ui->cmbBank->setCurrentIndex(1);
+//    ui->cmbBank->setCurrentIndex(0);
+    ui->cmbBank->setCurrentIndex(bank);
+//    m_work.m_currentImage->m_image->SetBank(bank);
+//    on_cmbBank_currentIndexChanged(bank);
+    //m_work.m_currentImage->m_image->m_currentBank = bank;
+
+    //showDetailCharButtons(m_prefMode!=CharsetImage::Mode::FULL_IMAGE);
+    SetSingleCharsetEdit();
+
     updateCharSet();
 
+//    onImageMouseEvent();
+
+    emit onImageMouseEvent();
+    m_isInitialized = true;
+
+
+    QTimer::singleShot(50, this, SLOT(InitAspect()));
 
 }
+
+
+void FormImageEditor::InitAspect()
+{
+//    if (m_projectIniFile->contains("aspect_ratio"))
+  //      ui->cmbAspect->setCurrentIndex(m_projectIniFile->getdouble("aspect_ratio"));
+    ui->cmbAspect->setCurrentIndex(GetFooterData(LImageFooter::POS_ASPECT));
+}
+
 
 void FormImageEditor::Save(QString filename)
 {
@@ -442,6 +610,8 @@ void FormImageEditor::SelectCharacter(int idx)
 
 void FormImageEditor::on_cmbEffect_currentIndexChanged(int index)
 {
+    if (index==-1)
+        return;
     m_currentImageEffect = m_imageEffects.m_effects[index];
     FillImageEffect();
 }
@@ -451,11 +621,11 @@ Ui::Formimageeditor *FormImageEditor::getUi() const
     return ui;
 }
 
-QLabel* FormImageEditor::getLabelImage()
+/*GLWidget* FormImageEditor::getLabelImage()
 {
     return ui->lblImage;
 }
-
+*/
 void FormImageEditor::UpdateCurrentMode()
 {
     if (m_work.m_currentImage==nullptr)
@@ -507,8 +677,13 @@ void FormImageEditor::UpdatePalette()
     ui->cmbMC2->setVisible(m_work.m_currentImage->m_image->m_supports.displayMC2);
     ui->cmbBorderMain_3->setVisible(m_work.m_currentImage->m_image->m_supports.displayForeground);
     ui->layoutColorsEdit_3->setEnabled(m_work.m_currentImage->m_image->m_supports.displayColors);
-
     ui->cmbBank->setVisible(m_work.m_currentImage->m_image->m_supports.displayBank);
+    if (!m_work.m_currentImage->m_image->m_supports.displayBank) {
+        // NES stuff: turn off tiles, bank
+        ui->lblBank->setVisible(false);
+        ui->lblPalette->setVisible(false);
+        ui->cmbNesPalette->setVisible(false);
+    }
 
 
     ui->cmbNesPalette->setEnabled(m_work.m_currentImage->m_image->m_supports.nesPalette);
@@ -555,6 +730,7 @@ void FormImageEditor::OpenSelectCharset()
     }
 
     SelectCharacter(ds->m_char);
+    SetSingleCharsetEdit();
 
     Data::data.Redraw();
     Data::data.forceRedraw = true;
@@ -571,36 +747,79 @@ void FormImageEditor::Reload()
 
 }
 
+bool FormImageEditor::eventFilter(QObject *ob, QEvent *e)
+{
+    if(/*e->type() == QEvent::KeyPress || */e->type()==QEvent::ShortcutOverride) {
+        const QKeyEvent *ke = static_cast<QKeyEvent *>(e);
+//        qDebug() << "KEY EVENT "<<rand()%100;
+
+        if (!(QApplication::keyboardModifiers() & Qt::ShiftModifier)) {
+            if(ke->key()== Qt::Key_Space) {
+                onSwapDisplayMode();
+                return true;
+            }
+            if (ke->key() == Qt::Key_F1) {
+                ui->cmbZoomLevel->setCurrentIndex(0);
+                on_cmbZoomLevel_activated("1x");
+                return true;
+            }
+            if (ke->key() == Qt::Key_F2) {
+                ui->cmbZoomLevel->setCurrentIndex(1);
+                on_cmbZoomLevel_activated("2x");
+                return true;
+            }
+            if (ke->key() == Qt::Key_F3) {
+                ui->cmbZoomLevel->setCurrentIndex(2);
+                on_cmbZoomLevel_activated("4x");
+                return true;
+            }
+            if (ke->key() == Qt::Key_F4) {
+                ui->cmbZoomLevel->setCurrentIndex(3);
+                on_cmbZoomLevel_activated("8x");
+                return true;
+            }
+        }
+        else
+        {
+            if (ke->key() == Qt::Key_F1) {
+                ui->tabMain->setCurrentIndex(0);
+            }
+            if (ke->key() == Qt::Key_F2) {
+                ui->tabMain->setCurrentIndex(1);
+            }
+            if (ke->key() == Qt::Key_F3) {
+                ui->tabMain->setCurrentIndex(2);
+            }
+            if (ke->key() == Qt::Key_F4) {
+                ui->tabMain->setCurrentIndex(3);
+            }
+            if (ke->key() == Qt::Key_F5) {
+                ui->tabMain->setCurrentIndex(4);
+            }
+        }
+
+
+        return false;
+    }
+    return QWidget::eventFilter(ob, e);
+}
+
 void FormImageEditor::resizeEvent(QResizeEvent *event)
 {
-    ui->lblImage->setVisible(true);
-    ui->lblGrid->setGeometry(ui->lblImage->geometry());
-    ui->lblGrid->repaint();
-   // qDebug() <<
-//    qDebug() << ui->lblImage->geometry();
+    QWidget* w = getCurrentPainter();
+    w->setVisible(true);
+    m_oldWidth = w->width();
+    UpdateAspect();
+    //ui->lblGrid->setGeometry(ui->lblImage->geometry());
+    //ui->lblGrid->repaint();
+    // qDebug() <<
+    //    qDebug() << ui->lblImage->geometry();
     //  ui->lblImage->setVisible(false);
 }
 
-void FormImageEditor::mouseMoveEvent(QMouseEvent *e)
-{
-    /*  if (m_work==nullptr)
-              return;
-          if (m_imgLabel==nullptr)
-              return;
-          if (m_work==nullptr)
-              return;
-          if (m_quit)
-              return;
-          if (m_work->m_currentImage==nullptr)
-              return;
-      */
 
 
-
-}
-
-
-void FormImageEditor::on_btnExportAsm_clicked()
+/*void FormImageEditor::on_btnExportAsm_clicked()
 {
 
     QString fileName = QFileDialog::getSaveFileName(this,
@@ -616,7 +835,7 @@ void FormImageEditor::on_btnExportAsm_clicked()
 
     mi->ExportAsm(fileName);
 }
-
+*/
 void FormImageEditor::on_btnGenerate_clicked()
 {
     FillToImageParams();
@@ -627,10 +846,45 @@ void FormImageEditor::on_btnGenerate_clicked()
 
 }
 
+void FormImageEditor::showDetailCharButtons()
+{
+/*    if (m_work.m_currentImage!=nullptr)
+    if (dynamic_cast<ImageLevelEditor*>(m_work.m_currentImage->m_image)!=nullptr)
+        return;
+*/
+    bool doShow = (GetFooterData(LImageFooter::POS_DISPLAY_CHAR))==1 && m_work.m_currentImage->m_image->m_supports.displayCharOperations;
+
+
+
+    ui->btnCharsetCopy->setVisible(doShow);
+    ui->btnCharsetPaste->setVisible(doShow);
+    ui->btnFlipVert->setVisible(doShow);
+    ui->btnFlipHorisontal->setVisible(doShow);
+    ui->btnShiftUp->setVisible(doShow);
+    ui->btnShiftDown->setVisible(doShow);
+    ui->btnShiftLeft->setVisible(doShow);
+    ui->btnShiftRight->setVisible(doShow);
+    ui->btnRepeating->setVisible(doShow);
+
+
+    if (dynamic_cast<ImageLevelEditor*>(m_work.m_currentImage->m_image)!=nullptr) {
+        doShow = true;
+    }
+    ui->cmbCharX->setVisible(doShow);
+    ui->cmbCharY->setVisible(doShow);
+
+/*    if (doShow)
+        ui->btnCharsetFull->setText("Full");
+    else
+        ui->btnCharsetFull->setText("Char");
+        */
+}
+
 
 void FormImageEditor::on_btnFlipVert_clicked()
 {
-    m_work.m_currentImage->m_image->FlipVertical();
+    m_work.m_currentImage->AddUndo();
+    m_work.m_currentImage->m_image->FlipHorizontal();
 
     Data::data.forceRedraw = true;
     Data::data.Redraw();
@@ -640,7 +894,8 @@ void FormImageEditor::on_btnFlipVert_clicked()
 
 void FormImageEditor::on_btnFlipHorisontal_clicked()
 {
-    m_work.m_currentImage->m_image->FlipHorizontal();
+    m_work.m_currentImage->AddUndo();
+    m_work.m_currentImage->m_image->FlipVertical();
 
     Data::data.forceRedraw = true;
     Data::data.Redraw();
@@ -670,9 +925,11 @@ void FormImageEditor::on_chkGrid_clicked(bool checked)
 {
 //    if (checked)
 //    ui->lblGrid->setVisible(checked);
-    m_updateThread.m_drawGrid=!m_updateThread.m_drawGrid;
+    m_updateThread.m_drawGrid=checked;
+    SetFooterData(LImageFooter::POS_DISPLAY_GRID,m_updateThread.m_drawGrid);
+
     Data::data.Redraw();
-    onImageMouseEvent();
+    emit onImageMouseEvent();
 
 }
 
@@ -708,20 +965,11 @@ void FormImageEditor::on_btnExportImage_clicked()
 }
 
 
-void FormImageEditor::on_lstImages_clicked(const QModelIndex &index)
-{
-    m_work.SetImage(index.row());
-    Data::data.redrawFileList = true;
-    UpdatePalette();
-
-    onImageMouseEvent();
-
-}
 
 void FormImageEditor::on_btnImport_clicked()
 {
     DialogImport* di = new DialogImport(this);
-    di->Initialize(m_work.m_currentImage->m_imageType->type, m_work.m_currentImage->m_image->m_colorList.m_type, m_work.m_currentImage->m_image);
+    di->Initialize(m_work.m_currentImage->m_image->m_type, m_work.m_currentImage->m_image->m_colorList.m_type, m_work.m_currentImage->m_image);
     di->exec();
     if (di->m_ok) {
         m_work.m_currentImage->m_image->CopyFrom(di->m_image);
@@ -736,55 +984,27 @@ void FormImageEditor::on_btnImport_clicked()
 
 void FormImageEditor::on_btnCharsetFull_clicked()
 {
-    CharsetImage* ci = dynamic_cast<CharsetImage*>(m_work.m_currentImage->m_image);
+    UpdateButtonIcons();
+    m_work.m_currentImage->m_image->m_footer.toggle(LImageFooter::POS_DISPLAY_CHAR);
+
+    getCurrentPainter()->setFocus();
+    ui->lstCharMap->setCurrentItem(nullptr);
+
+/*    CharsetImage* ci = dynamic_cast<CharsetImage*>(m_work.m_currentImage->m_image);
     if (ci==nullptr)
         return;
+
 
     ci->m_currentMode = CharsetImage::Mode::FULL_IMAGE;
+    */
     Data::data.forceRedraw = true;
     UpdateCurrentMode();
+    UpdateGrid();
+    emit onImageMouseEvent();
+
     onImageMouseEvent();
 }
 
-void FormImageEditor::on_btnCharset1x1_clicked()
-{
-    CharsetImage* ci = dynamic_cast<CharsetImage*>(m_work.m_currentImage->m_image);
-    if (ci==nullptr)
-        return;
-
-    m_updateThread.m_zoom = 1.0;
-    ci->m_currentMode = CharsetImage::Mode::CHARSET1x1;
-    Data::data.forceRedraw = true;
-    onImageMouseEvent();
-
-}
-
-void FormImageEditor::on_btnCharset2x2_clicked()
-{
-    CharsetImage* ci = dynamic_cast<CharsetImage*>(m_work.m_currentImage->m_image);
-    if (ci==nullptr)
-        return;
-
-    m_updateThread.m_zoom = 1.0;
-    ci->m_currentMode = CharsetImage::Mode::CHARSET2x2;
-    Data::data.forceRedraw = true;
-    UpdateCurrentMode();
-    onImageMouseEvent();
-}
-
-void FormImageEditor::on_btnCharset2x2Repeat_clicked()
-{
-    CharsetImage* ci = dynamic_cast<CharsetImage*>(m_work.m_currentImage->m_image);
-    if (ci==nullptr)
-        return;
-    m_updateThread.m_zoom = 1.0;
-
-    ci->m_currentMode = CharsetImage::Mode::CHARSET2x2_REPEAT;
-    UpdateCurrentMode();
-    Data::data.forceRedraw = true;
-    onImageMouseEvent();
-
-}
 
 void FormImageEditor::on_btnCharsetCopy_clicked()
 {
@@ -850,42 +1070,27 @@ void FormImageEditor::updateCharSet()
     CharsetImage* charmap = m_work.m_currentImage->m_image->getCharset();
 
     ImageLevelEditor* le = dynamic_cast<ImageLevelEditor*>(m_work.m_currentImage->m_image);
-    if (le!=nullptr && charmap==nullptr) {
+/*    if (le!=nullptr && charmap==nullptr) {
         Messages::messages.DisplayMessage(Messages::messages.CHARSET_WARNING);
         return;
-    }
+    }*/
     if (charmap == nullptr)
         return;
 
     QVector<QPixmap> maps;
     charmap->ToQPixMaps(maps);
 
+    ui->lstCharMap->setSelectionMode(QAbstractItemView::SingleSelection);
 
 
 
-  /*  Util::clearLayout(ui->grdChars);
-    int i=0;
-    int j=0;
-    for (int cnt=0;cnt<maps.count();cnt++) {
-        QPushButton* item = new QPushButton(this);
-        item->setAutoFillBackground(true);
-        item->setText("");
-        item->setIcon(maps[cnt]);
-        QObject::connect( item, &QPushButton::clicked,  [=](){ SelectCharacter(cnt);} );
 
-        ui->grdChars->addWidget(item, j,i);
-
-        i++;
-        if (i>=8) {
-            i=0;
-            j++;
-        }
-    }
-*/
     int width = charmap->m_charWidthDisplay;
+    int height = charmap->m_charHeightDisplay;
 //   ui->lstCharMap->setViewMode(QListView::IconMode);
    ui->lstCharMap->setColumnCount(width);
-   ui->lstCharMap->setRowCount(1+maps.count()/width);
+//   ui->lstCharMap->setRowCount(1+maps.count()/width);
+   ui->lstCharMap->setRowCount(height);
     int cnt=0;
     int j=0;
     int i=0;
@@ -912,7 +1117,7 @@ void FormImageEditor::updateCharSet()
             ui->lstCharMap->setItem(j,i,itm);
 
         }
-        //qDebug() << kk;
+//        qDebug() << kk;
         itm->setIcon(q);
         itm->setData(Qt::UserRole, kk);
         cnt++;
@@ -954,24 +1159,36 @@ void FormImageEditor::updateSingleCharSet()
     UpdateCurrentMode();
     CharsetImage* charmap = m_work.m_currentImage->m_image->getCharset();
     ImageLevelEditor* le = dynamic_cast<ImageLevelEditor*>(m_work.m_currentImage->m_image);
-    if (le!=nullptr && charmap==nullptr) {
+/*    if (le!=nullptr && charmap==nullptr) {
         Messages::messages.DisplayMessage(Messages::messages.CHARSET_WARNING);
         return;
-    }
+    }*/
     if (charmap == nullptr)
         return;
-    if (charmap->m_currencChar<0)
+    if (charmap->m_currentChar<0)
         return;
-    QPixmap pmap = charmap->ToQPixMap(charmap->m_currencChar);
+    int c = charmap->m_currentChar;
+    for (int i=0;i<GetFooterData(LImageFooter::POS_CURRENT_DISPLAY_Y);i++) {
+        for (int j=0;j<GetFooterData(LImageFooter::POS_CURRENT_DISPLAY_X);j++) {
+            int k = c+j;
 
-    int kk= 0;
-    int i = charmap->m_currencChar/(int)charmap->m_charWidthDisplay;
-    int j = charmap->m_currencChar%(int)charmap->m_charWidthDisplay;
-    QTableWidgetItem *itm = ui->lstCharMap->item(i,j);
-    if (itm!=nullptr)
-        itm->setIcon(pmap);
+            QPixmap pmap = charmap->ToQPixMap(k);
 
+            int y = k/(int)charmap->m_charWidthDisplay;
+            int x = k%(int)charmap->m_charWidthDisplay;
+            QTableWidgetItem *itm = ui->lstCharMap->item(y,x);
+            if (itm!=nullptr)
+                itm->setIcon(pmap);
 
+        }
+        c = c + charmap->m_charWidthDisplay;
+    }
+}
+
+void FormImageEditor::InitQtPainter()
+{
+//    ui->lblImage->setVisible(false);
+//    delete ui->lblImageQt;
 }
 
 
@@ -981,20 +1198,33 @@ void FormImageEditor::updateSingleCharSet()
 void FormImageEditor::PrepareImageTypeGUI()
 {
     // Only display "load charset" for levels
+    if (m_work.m_currentImage == nullptr)
+        return;
+    if (m_work.m_currentImage->m_image==nullptr)
+        return;
     SetButton(ui->btnLoadCharmap,LImage::GUIType::btnLoadCharset);
-    SetButton(ui->btnCharset1x1,LImage::GUIType::btn1x1);
-    SetButton(ui->btnCharset2x2,LImage::GUIType::btn2x2);
-    SetButton(ui->btnCharset2x2Repeat,LImage::GUIType::btn2x2repeat);
-    SetButton(ui->btnCharsetCopy,LImage::GUIType::btnCopy);
-    SetButton(ui->btnCharsetPaste,LImage::GUIType::btnPaste);
-    SetButton(ui->btnFlipHorisontal,LImage::GUIType::btnFlipH);
-    SetButton(ui->btnFlipVert,LImage::GUIType::btnFlipV);
-    SetButton(ui->btnCharsetFull,LImage::GUIType::btnEditFullCharset);
+    //SetButton(ui->btnCharset1x1,LImage::GUIType::btn1x1);
+    //SetButton(ui->btnCharset2x2,LImage::GUIType::btn2x2);
+    //SetButton(ui->btnCharset2x2Repeat,LImage::GUIType::btn2x2repeat);
+//    SetButton(ui->btnCharsetCopy,LImage::GUIType::btnCopy);
+//    SetButton(ui->btnCharsetPaste,LImage::GUIType::btnPaste);
+//    SetButton(ui->btnFlipHorisontal,LImage::GUIType::btnFlipH);
+//    SetButton(ui->btnFlipVert,LImage::GUIType::btnFlipV);
+//    SetButton(ui->btnCharsetFull,LImage::GUIType::btnEditFullCharset);
+    SetLabel(ui->lblBackground, LImage::GUIType::col1);
+    SetLabel(ui->lblForeground, LImage::GUIType::col2);
+    SetLabel(ui->lblMC1, LImage::GUIType::col3);
+    SetLabel(ui->lblMC2, LImage::GUIType::col4);
+
+
+    if (m_work.m_currentImage->m_image->isNes())
+        ui->btnImportRom->setVisible(false);
+
 
     int idx=0;
 //    qDebug() << m_work.m_currentImage->m_image->m_GUIParams;
     if (m_work.m_currentImage->m_image->m_GUIParams[LImage::GUIType::tabCharset]=="") {
-        ui->tabMain->removeTab(1);
+        ui->tabMain->removeTab(0);
         idx++;
     }
     if (m_work.m_currentImage->m_image->m_GUIParams[LImage::GUIType::tabSprites]=="") {
@@ -1002,7 +1232,7 @@ void FormImageEditor::PrepareImageTypeGUI()
         idx++;
     }
     else {
-        ui->tabMain->setTabText(2-idx,m_work.m_currentImage->m_image->m_GUIParams[LImage::GUIType::tabSprites]);
+        //ui->tabMain->setTabText(2-idx,m_work.m_currentImage->m_image->m_GUIParams[LImage::GUIType::tabSprites]);
 
     }
     if (m_work.m_currentImage->m_image->m_GUIParams[LImage::GUIType::tabLevels]=="") {
@@ -1025,7 +1255,66 @@ void FormImageEditor::PrepareImageTypeGUI()
 
 }
 
+void FormImageEditor::SetSingleCharsetEdit()
+{
+
+
+    UpdateGrid();
+    SetFooterData(LImageFooter::POS_DISPLAY_CHAR,1);
+    m_updateThread.m_zoom = 1.0;
+    UpdateCurrentCell();
+    emit onImageMouseEvent();
+
+}
+
+void FormImageEditor::SetFooterData(int pos, uchar val)
+{
+    if (m_work.m_currentImage==nullptr)
+        return;
+    if (m_work.m_currentImage->m_image==nullptr)
+        return;
+    m_work.m_currentImage->m_image->m_footer.set(pos,val);
+}
+
+uchar FormImageEditor::GetFooterData(int pos)
+{
+    if (m_work.m_currentImage==nullptr)
+        return 0;
+    if (m_work.m_currentImage->m_image==nullptr)
+        return 0;
+    return m_work.m_currentImage->m_image->m_footer.get(pos);
+
+}
+
+void FormImageEditor::UpdateCurrentCell()
+{
+    int c = m_work.m_currentImage->m_image->m_currentChar;
+    int w = m_work.m_currentImage->m_image->m_charWidthDisplay;
+    ui->lstCharMap->setCurrentCell(c/w, c%w);
+
+  /*              int i = m_work.m_currentImage->m_image->m_currentChar;
+                int x = i%m_work.m_currentImage->m_image->m_charWidthDisplay;
+                int y = (i-x)/m_work.m_currentImage->m_image->m_charWidthDisplay;
+                qDebug() << "Setting current cell "<<y<<x;
+                ui->lstCharMap->setCurrentCell(y,x);
+*/
+
+
+}
+
 void FormImageEditor::SetButton(QPushButton *btn, LImage::GUIType type)
+{
+    //if (m_work.m_currentImage->m_image->m_GUIParams.contains(type))
+      //  return;
+
+    if (m_work.m_currentImage->m_image->m_GUIParams[type]=="")
+        btn->setVisible(false);
+    else
+        btn->setText(m_work.m_currentImage->m_image->m_GUIParams[type]);
+
+}
+
+void FormImageEditor::SetLabel(QLabel *btn, LImage::GUIType type)
 {
     if (m_work.m_currentImage->m_image->m_GUIParams[type]=="")
         btn->setVisible(false);
@@ -1036,7 +1325,8 @@ void FormImageEditor::SetButton(QPushButton *btn, LImage::GUIType type)
 
 void FormImageEditor::PrepareClose()
 {
-    ui->lblImage->CancelAll();
+    AbstractImageEditor*a = dynamic_cast<AbstractImageEditor*>(getCurrentPainter());
+    a->CancelAll();
 }
 
 void FormImageEditor::SetMCColors()
@@ -1053,7 +1343,8 @@ void FormImageEditor::SetMCColors()
         m_work.m_currentImage->m_image->SetColor(back, 0);
         m_work.m_currentImage->m_image->SetColor(a, 1);
         m_work.m_currentImage->m_image->SetColor(b, 2);
-        m_work.m_currentImage->m_image->SetColor(c, 3);
+        if (m_work.m_currentImage->m_image->isNes())
+          m_work.m_currentImage->m_image->SetColor(c, 3);
 
         QVector<int> lst;
         lst.append(a);
@@ -1066,6 +1357,7 @@ void FormImageEditor::SetMCColors()
     }
 
     updateCharSet();
+    UpdateMulticolorImageSettings();
     emit onImageMouseEvent();
 
     Data::data.Redraw();
@@ -1262,10 +1554,83 @@ void FormImageEditor::UpdateSpriteImages()
 
     }
 
-//    img->m_currencChar = keep;
+//    img->m_currentChar = keep;
 //    ui->lblSprite2->setPixmap(m_updateThread.m_pixMapImage.scaled(40, 32, Qt::IgnoreAspectRatio, Qt::FastTransformation));
 
 
+
+}
+
+void FormImageEditor::UpdateAspect()
+{
+    QWidget* w = getCurrentPainter();
+    int val = ui->cmbAspect->currentIndex();
+    if (val==0) {
+        w->setMinimumHeight(0);
+        w->setMaximumHeight(100000);
+        w->setMinimumWidth(0);
+        w->setMaximumWidth(100000);
+        ui->vImageSpacer->changeSize(0,0);
+//        m_oldWidth = width();
+    }
+    if (val==1) {
+//        qDebug() << m_oldWidth;
+        int size = min((double)m_oldWidth,height()/1.25);
+        w->setMinimumHeight(size);
+        w->setMaximumHeight(size);
+        w->setMinimumWidth(size);
+        w->setMaximumWidth(size);
+        ui->vImageSpacer->changeSize(0,200,QSizePolicy::Expanding,QSizePolicy::Expanding);
+    }
+    if (val==2) {
+        w->setMinimumWidth(0);
+        w->setMaximumWidth(100000);
+        w->setMinimumHeight(m_oldWidth/1.6);
+        w->setMaximumHeight(m_oldWidth/1.6);
+        ui->vImageSpacer->changeSize(0,200,QSizePolicy::Expanding,QSizePolicy::Expanding);
+    }
+    this->resize(this->geometry().width(), this->geometry().height());
+    onImageMouseEvent();
+
+}
+
+void FormImageEditor::Update()
+{
+    Data::data.forceRedraw = true;
+    Data::data.Redraw();
+//    updateCharSet();
+    onImageMouseEvent();
+
+}
+
+QWidget *FormImageEditor::getCurrentPainter()
+{
+    if (m_painterType==OpenGL)
+        return ui->lblImage;
+    return ui->lblImageQt;
+}
+
+
+
+void FormImageEditor::onSwapDisplayMode()
+{
+    m_work.m_currentImage->m_image->m_footer.toggle(LImageFooter::POS_DISPLAY_CHAR);
+    getCurrentPainter()->setFocus();
+    ui->lstCharMap->setCurrentItem(nullptr);
+    if (GetFooterData(LImageFooter::POS_DISPLAY_CHAR)==1) {
+/*        int c = m_work.m_currentImage->m_image->m_currentChar;
+        int w = m_work.m_currentImage->m_image->m_charWidthDisplay;
+
+
+        ui->lstCharMap->setCurrentCell(c/w, c%w);*/
+        UpdateCurrentCell();
+    }
+
+    m_updateThread.m_zoom = 1.0;
+
+    emit onImageMouseEvent();
+    Data::data.forceRedraw = true;
+    Data::data.Redraw();
 
 }
 
@@ -1326,15 +1691,16 @@ void FormImageEditor::on_btnLoadCharmap_clicked()
 
 void FormImageEditor::on_lstCharMap_currentItemChanged(QTableWidgetItem *current, QTableWidgetItem *previous)
 {
-
     if (current==nullptr)
         return;
-
+    m_prefMode = m_keepMode;
     SelectCharacter(current->data(Qt::UserRole).toInt());
-
+    SetSingleCharsetEdit();
     Data::data.Redraw();
     Data::data.forceRedraw = true;
+//    qDebug() << m_work.m_currentImage->m_image->m_currentChar;
     onImageMouseEvent();
+  //  qDebug() << m_work.m_currentImage->m_image->m_currentChar;
 
 
 }
@@ -1369,6 +1735,7 @@ void FormImageEditor::on_cmbBackgroundMain_3_activated(int index)
 {
     m_work.m_currentImage->m_image->setBackground(index);
     SetMCColors();
+    updateCharSet();
     emit onImageMouseEvent();
     Data::data.redrawOutput = true;
 
@@ -1401,9 +1768,21 @@ void FormImageEditor::on_btnResizeData_clicked()
 
 }
 
+void FormImageEditor::UpdateMulticolorImageSettings()
+{
+    if (m_work.m_currentImage->m_image->m_supports.displayColors) {
+        m_work.m_currentImage->m_image->m_colorList.SetIsMulticolor(ui->chkDisplayMulticolor->isChecked());
+        m_work.m_currentImage->m_image->m_colorList.CreateUI(ui->layoutColorsEdit_3,1);
+    }
+
+}
+
 void FormImageEditor::on_chkDisplayMulticolor_stateChanged(int arg1)
 {
     m_work.m_currentImage->m_image->setMultiColor(ui->chkDisplayMulticolor->isChecked());
+    SetFooterData(LImageFooter::POS_DISPLAY_MULTICOLOR,ui->chkDisplayMulticolor->isChecked());
+    UpdateMulticolorImageSettings();
+    updateCharSet();
     Data::data.Redraw();
     onImageMouseEvent();
 
@@ -1417,12 +1796,6 @@ void FormImageEditor::on_leHeaders_editingFinished()
     m_projectIniFile->setStringList("data_header_"+m_currentFileShort,lst);
     m_projectIniFile->Save(m_projectIniFile->filename);
 
-
-}
-
-void FormImageEditor::on_tblData_cellChanged(int row, int column)
-{
-    //m_work.m_currentImage->m_image->StoreData(ui->tblData);
 
 }
 
@@ -1494,42 +1867,11 @@ void FormImageEditor::on_btnFlipYSprite_clicked()
     onImageMouseEvent();
 }
 
-void FormImageEditor::on_sliderX_actionTriggered(int action)
-{
-/*    int v = ui->sliderX->value();
-    if (v>60) {
-        m_work.m_currentImage->m_image->Transform(1,0);
-//        ui->sliderX->setValue(50);
-
-    }
-    if (v>40) {
-        m_work.m_currentImage->m_image->Transform(-1,0);
-  //      ui->sliderX->setValue(50);
-
-    }
-    onImageMouseEvent();
-*/
-}
-
-void FormImageEditor::on_btnPanLeft_clicked()
-{
-    m_work.m_currentImage->AddUndo();
-    m_work.m_currentImage->m_image->Transform(-1,0);
-    onImageMouseEvent();
-}
 
 void FormImageEditor::on_btnPanRight_clicked()
 {
     m_work.m_currentImage->AddUndo();
     m_work.m_currentImage->m_image->Transform(1,0);
-    onImageMouseEvent();
-
-}
-
-void FormImageEditor::on_btnPanUp_clicked()
-{
-    m_work.m_currentImage->AddUndo();
-    m_work.m_currentImage->m_image->Transform(0,-1);
     onImageMouseEvent();
 
 }
@@ -1615,8 +1957,10 @@ void FormImageEditor::on_btnImportRom_clicked()
         return;
 
     QString fileName = ":resources/character.rom";
-    m_work.m_currentImage->m_image->LoadCharset(fileName,0);
 
+    m_work.m_currentImage->m_image->LoadCharset(fileName,0);
+    ui->cmbCharX->setCurrentIndex(0);
+    ui->cmbCharY->setCurrentIndex(0);
     m_projectIniFile->setString("charset_"+m_currentFileShort, fileName);
     m_projectIniFile->Save();
     updateCharSet();
@@ -1730,7 +2074,10 @@ void FormImageEditor::on_cmbBorderMain_3_activated(int index)
 
 void FormImageEditor::on_cmbNesPalette_currentIndexChanged(int index)
 {
+    if (!m_work.m_currentImage->m_image->isNes())
+        return;
 //    m_ignoreMC = true;
+//    qDebug() << index;
     m_work.m_currentImage->m_image->m_colorList.m_curPal = index;
     m_ignoreMC = false;
     int idx = m_work.m_currentImage->m_image->m_colorList.m_curPal*4+1;
@@ -1739,6 +2086,10 @@ void FormImageEditor::on_cmbNesPalette_currentIndexChanged(int index)
     ui->cmbBorderMain_3->setCurrentIndex(m_work.m_currentImage->m_image->m_colorList.m_nesPPU[idx+2]);
     ui->cmbBackgroundMain_3->setCurrentIndex(m_work.m_currentImage->m_image->m_colorList.m_nesPPU[0]);
     m_ignoreMC = false;
+
+    SetFooterData(LImageFooter::POS_CURRENT_PALETTE,index);
+
+//    qDebug() << "on_cmbNesPalette "<< index;
 
 
     SetMCColors();
@@ -1750,6 +2101,9 @@ void FormImageEditor::on_cmbNesPalette_currentIndexChanged(int index)
 void FormImageEditor::on_cmbBank_currentIndexChanged(int index)
 {
     m_work.m_currentImage->m_image->SetBank(index);
+    SetFooterData(LImageFooter::POS_CURRENT_BANK,index);
+//    qDebug() << "Setting :" << index;
+
     updateCharSet();
 
 }
@@ -1762,4 +2116,108 @@ void FormImageEditor::on_cmbNesPalette_activated(int index)
 void FormImageEditor::on_btnCharSelect_clicked()
 {
     OpenSelectCharset();
+}
+
+
+
+void FormImageEditor::on_cmbAspect_currentIndexChanged(int index)
+{
+//    m_projectIniFile->setFloat("aspect_ratio",index);
+    SetFooterData(LImageFooter::POS_ASPECT,index);
+
+    UpdateAspect();
+
+}
+
+void FormImageEditor::on_chkPaintSeparately_stateChanged(int arg1)
+{
+    m_work.m_currentImage->m_image->m_forcePaintColorAndChar = !ui->chkPaintSeparately->isChecked();
+    SetFooterData(LImageFooter::POS_DOUBLE_PAINT,!m_work.m_currentImage->m_image->m_forcePaintColorAndChar);
+
+}
+
+void FormImageEditor::on_pushButton_clicked()
+{
+//    Reload();
+    if (m_currentFilename!="") {
+//        Load(m_currentFilename);
+        //m_work.m_currentImage->m_image = LImageIO::Load(m_currentFilename);
+        Load(m_currentFilename);
+        ui->cmbNesPalette->setCurrentIndex(GetFooterData(LImageFooter::POS_CURRENT_PALETTE));
+        on_cmbNesPalette_currentIndexChanged(GetFooterData(LImageFooter::POS_CURRENT_PALETTE));
+        on_cmbNesPalette_currentIndexChanged(GetFooterData(LImageFooter::POS_CURRENT_PALETTE));
+
+        Update();
+
+    }
+}
+
+void FormImageEditor::on_cmbCharX_currentIndexChanged(int index)
+{
+    SetFooterData(LImageFooter::POS_CURRENT_DISPLAY_X,ui->cmbCharX->currentText().toInt());
+    SetFooterData(LImageFooter::POS_DISPLAY_CHAR,0);
+    on_btnCharsetFull_clicked();
+
+    Update();
+    UpdateCurrentCell();
+
+}
+
+void FormImageEditor::on_cmbCharY_currentIndexChanged(int index)
+{
+    SetFooterData(LImageFooter::POS_CURRENT_DISPLAY_Y,ui->cmbCharY->currentText().toInt());
+    SetFooterData(LImageFooter::POS_DISPLAY_CHAR,0);
+    on_btnCharsetFull_clicked();
+
+    Update();
+    UpdateCurrentCell();
+
+}
+
+void FormImageEditor::on_btnRepeating_clicked()
+{
+    m_work.m_currentImage->m_image->m_footer.toggle(LImageFooter::POS_CURRENT_DISPLAY_REPEAT);
+    Update();
+
+}
+
+void FormImageEditor::on_btnShiftLeft_clicked()
+{
+    m_work.m_currentImage->AddUndo();
+    m_work.m_currentImage->m_image->ShiftXY(-1,0);
+    Update();
+
+}
+
+void FormImageEditor::on_btnShiftRight_clicked()
+{
+    m_work.m_currentImage->AddUndo();
+    m_work.m_currentImage->m_image->ShiftXY(1,0);
+    Update();
+
+}
+
+void FormImageEditor::on_btnShiftDown_clicked()
+{
+    m_work.m_currentImage->AddUndo();
+    m_work.m_currentImage->m_image->ShiftXY(0,1);
+    Update();
+
+}
+
+void FormImageEditor::on_btnShiftUp_clicked()
+{
+    m_work.m_currentImage->AddUndo();
+    m_work.m_currentImage->m_image->ShiftXY(0,-1);
+    Update();
+
+}
+
+void FormImageEditor::on_btnClear_clicked()
+{
+    m_work.m_currentImage->AddUndo();
+    m_work.m_currentImage->m_image->Clear();
+    updateCharSet();
+
+    Update();
 }

@@ -149,7 +149,6 @@
         <file>resources/text/help/m/enableirq.rtf</file>
         <file>resources/text/help/m/enablerasterirq.rtf</file>
         <file>resources/text/help/m/disableciainterrupts.rtf</file>
-        <file>resources/text/help/m/closeirqwedge.rtf</file>
         <file>resources/text/help/m/copybytesshift.rtf</file>
         <file>resources/text/help/m/isoverlapping.rtf</file>
         <file>resources/text/help/m/isoverlappingwh.rtf</file>
@@ -361,5 +360,49 @@
         <file>resources/text/help/m/vbmdrawtexte.rtf</file>
         <file>resources/text/help/m/vbmdrawtexto.rtf</file>
         <file>resources/text/help/m/vbmdrawtext.rtf</file>
+        <file>resources/text/help/r/const.rtf</file>
+        <file>resources/shaders/screen.frag</file>
+        <file>resources/shaders/screen.vert</file>
+        <file>resources/images/brush_circle_background.png</file>
+        <file>resources/images/brush_rotate.png</file>
+        <file>resources/images/brush_copy.png</file>
+        <file>resources/images/fx-trans.png</file>
+        <file>resources/images/data-trans.png</file>
+        <file>resources/images/levels-trans.png</file>
+        <file>resources/images/import-export-trans.png</file>
+        <file>resources/images/charset-trans.png</file>
+        <file>resources/images/tabs-meta-trans.png</file>
+        <file>resources/images/tabs-meta.png</file>
+        <file>resources/text/help/m/vbmcopytobuffer.rtf</file>
+        <file>resources/text/help/m/vbmcopyfrombuffer.rtf</file>
+        <file>resources/text/help/c/ppuctrl.rtf</file>
+        <file>resources/text/help/m/vbmdrawsprite.rtf</file>
+        <file>resources/text/help/m/vbmclearsprite.rtf</file>
+        <file>resources/text/help/m/vbmdrawspritee.rtf</file>
+        <file>resources/text/help/m/vbmspriteshiftsl.rtf</file>
+        <file>resources/text/help/m/vbmspriteshiftsr.rtf</file>
+        <file>resources/images/charset_icons/btn-1-FullView.png</file>
+        <file>resources/images/charset_icons/btn-2-CharView.png</file>
+        <file>resources/images/charset_icons/btn-3-RepeatTile.png</file>
+        <file>resources/images/charset_icons/btn-4-NoRepeatTile.png</file>
+        <file>resources/images/charset_icons/btn-5-Copy.png</file>
+        <file>resources/images/charset_icons/btn-6-Paste.png</file>
+        <file>resources/images/charset_icons/btn-7-ShiftUp.png</file>
+        <file>resources/images/charset_icons/btn-8-ShiftDown.png</file>
+        <file>resources/images/charset_icons/btn-9-ShiftLeft.png</file>
+        <file>resources/images/charset_icons/btn-9-ShiftRightt.png</file>
+        <file>resources/images/charset_icons/btn-c-cleart.png</file>
+        <file>resources/images/charset_icons/btn-b-mirror-vert.png</file>
+        <file>resources/images/charset_icons/btn-a-mirror-horiz.png</file>
+        <file>resources/text/help/m/vbmdrawsmalltexto.rtf</file>
+        <file>resources/text/help/m/vbmclearsmalltext.rtf</file>
+        <file>resources/text/help/m/vbmdrawsmalltexte.rtf</file>
+        <file>resources/text/help/m/ppuwrite.rtf</file>
+        <file>resources/text/help/m/ppusingle.rtf</file>
+        <file>resources/text/help/m/ppupoint.rtf</file>
+        <file>resources/text/help/m/initsinetable.rtf</file>
+        <file>resources/text/help/m/ppuread.rtf</file>
+        <file>resources/text/help/p/bitwise_operations.rtf</file>
+        <file>resources/text/help/r/vbmexport.rtf</file>
     </qresource>
 </RCC>

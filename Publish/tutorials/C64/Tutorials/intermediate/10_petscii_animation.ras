@@ -3,15 +3,16 @@ var
 	zp: pointer;   
 	maxFrames, compressionType, hasTimeStamps, endChar, skipChar, curFrame: byte=0;	
 
-@define animPos $4000
+	const animPos : address = $4000;
 
+// Images are imported using TRSE's petscii importer. Check out the .flf file!
 @export "resources/images/petscii_animation.flf" "resources/images/petscii_animation.trm" 0
 
-	anim: incbin("resources/images/petscii_animation.trm",@animPos);
+	anim: incbin("resources/images/petscii_animation.trm",animPos);
 	
 procedure ReadAnimationHeader();
 begin
-	zp:=@animPos;
+	zp:=animPos;
 	maxFrames := zp[2];
 	compressionType := zp[3];
 	hasTimeStamps:=zp[4];
@@ -72,16 +73,16 @@ end;
 
 procedure Render();
 var
-  i,j:byte;
+  li,lj:byte;
 begin
 	while (true) do
 	begin
-//		screenoff();
+		screenoff();
 		RenderNextPackedFrameCompressionType2(40,0,0);
-//		screenon();
-		for i:=0 to 20 do
-			for j:=0 to 10 do 
-				waitforraster(1);
+		screenon();
+		for li:=0 to 10 do
+			for lj:=0 to 10 do 
+				waitforverticalblank();
 	end;
 end;
 

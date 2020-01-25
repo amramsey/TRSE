@@ -3,6 +3,7 @@
 
 #include "source/LeLib/limage/multicolorimage.h"
 #include "source/LeLib/limage/charsetimage.h"
+#include <QKeyEvent>
 
 class LImageNES : public CharsetImage
 {
@@ -20,19 +21,28 @@ public:
     void CopyFrom(LImage* img) override;
     void setForeground(unsigned int col) override;
 
-
     void SaveBin(QFile& file) override;
     void ConstrainColours(QVector<int>& cols) override {
         PerformConstrainColours(cols);
 
     }
 
+    void CopySingleChar(LImage* src, int srcChar, int dstChar) override;
+
+
+    virtual bool isNes() {return true;}
+
+
+    bool KeyPress(QKeyEvent *e) override;
     void LoadBin(QFile& file) override;
     void ApplyColor() override {
 
     }
     QPixmap ToQPixMap(int chr) override;
     void SetPalette(int pal) override;
+
+    bool getXY(QPoint& xy,QPoint& p1, QPoint& p2);
+
 
     virtual QString getMetaInfo() override;
 

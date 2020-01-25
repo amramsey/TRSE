@@ -547,7 +547,7 @@ void ASTDispather6502::RightIsPureNumericMulDiv8bit(Node *node) {
 void ASTDispather6502::dispatch(NodeBinOP *node)
 {
 
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
 /*    if (node->m_isCollapsed) {
         as->Asm("lda "+node->getValue(as));
@@ -624,7 +624,7 @@ void ASTDispather6502::dispatch(NodeBinOP *node)
 
 void ASTDispather6502::dispatch(NodeNumber *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     QString val = "";
 
@@ -676,7 +676,7 @@ void ASTDispather6502::dispatch(NodeNumber *node)
 
 void ASTDispather6502::dispatch(NodeBuiltinMethod *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
     node->VerifyParams(as);
 
 //    as->PushCounter();
@@ -691,7 +691,7 @@ void ASTDispather6502::dispatch(NodeBuiltinMethod *node)
 
 void ASTDispather6502::dispatch(Node *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     node->m_currentLineNumber = node->m_op.m_lineNumber;
 }
@@ -700,7 +700,7 @@ void ASTDispather6502::dispatch(Node *node)
 
 void ASTDispather6502::dispatch(NodeProcedure *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 //    as->PushCounter();
 //    int ln = node->m_op.m_lineNumber;
     if (node->m_parameters.count()!=node->m_procedure->m_paramDecl.count())
@@ -724,7 +724,7 @@ void ASTDispather6502::dispatch(NodeProcedure *node)
 
 void ASTDispather6502::dispatch(NodeProcedureDecl *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
     as->m_symTab->SetCurrentProcedure(node->m_procName+"_");
     int ln = node->m_currentLineNumber;
 //    as->PushCounter();
@@ -732,10 +732,11 @@ void ASTDispather6502::dispatch(NodeProcedureDecl *node)
   //      qDebug() << node->m_procName << "IS IN BLOCK " << node->m_curMemoryBlock->m_name << " STARTING AT " << Util::numToHex(node->m_curMemoryBlock->m_start);
 
     // In case memory block is acive
-//    as->EndMemoryBlock();
+
+
+//    qDebug() << node->m_procName << node->m_curMemoryBlock << as->m_currentBlock;
 
     int ret = node->MaintainBlocks(as);
-
     if (ret==3) node->m_curMemoryBlock=nullptr;
     if (as->m_currentBlock!=nullptr) {
         if (node->m_curMemoryBlock==nullptr) {
@@ -747,8 +748,9 @@ void ASTDispather6502::dispatch(NodeProcedureDecl *node)
             as->blocks.append(node->m_curMemoryBlock);
         }
     }
-    else
-        node->m_curMemoryBlock=nullptr;
+    else {
+        //node->m_curMemoryBlock=nullptr;
+    }
 
 
 
@@ -761,6 +763,8 @@ void ASTDispather6502::dispatch(NodeProcedureDecl *node)
     if (Syntax::s.builtInFunctions.contains(node->m_procName)) {
         isBuiltinFunction = true;
         isInitFunction = Syntax::s.builtInFunctions[node->m_procName].m_initFunction;
+//        as->EndMemoryBlock();
+
     }
 
     as->Asm("");
@@ -773,7 +777,7 @@ void ASTDispather6502::dispatch(NodeProcedureDecl *node)
         as->Comment("   Requires initialization : " + type);
     }
     as->Asm("");
-
+    as->m_currentBlockName = node->m_procName;
 
     if (!isInitFunction) {
         //as->Asm("jmp afterProc_" + m_procName);
@@ -807,7 +811,7 @@ void ASTDispather6502::dispatch(NodeProcedureDecl *node)
 
 void ASTDispather6502::dispatch(NodeProgram *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
 //    as->EndMemoryBlock();
     NodeBuiltinMethod::m_isInitialized.clear();
@@ -822,12 +826,12 @@ void ASTDispather6502::dispatch(NodeProgram *node)
 
 void ASTDispather6502::dispatch(NodeVarType *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
 }
 void ASTDispather6502::dispatch(NodeAsm *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     QStringList txt = node->m_asm.split("\n");
     as->Comment("");
@@ -840,14 +844,14 @@ void ASTDispather6502::dispatch(NodeAsm *node)
 
 void ASTDispather6502::dispatch(NodeString *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     as->String(node->m_val);
 }
 
 void ASTDispather6502::dispatch(NodeUnaryOp *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     NodeNumber* num = dynamic_cast<NodeNumber*>(node->m_right);
 
@@ -874,7 +878,7 @@ void ASTDispather6502::dispatch(NodeUnaryOp *node)
 
 void ASTDispather6502::dispatch(NodeCompound *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     as->BeginBlock();
     for (Node* n: node->children)
@@ -888,7 +892,7 @@ void ASTDispather6502::dispatch(NodeCompound *node)
 
 void ASTDispather6502::dispatch(NodeBlock *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     // In case memory block is acive
     //as->EndMemoryBlock();
@@ -912,6 +916,14 @@ void ASTDispather6502::dispatch(NodeBlock *node)
         hasLabel = true;
         //           as->PushBlock(m_decl[0]->m_op.m_lineNumber-1);
     }
+
+/*    if (node->m_isMainBlock) {
+        int ret = node->MaintainBlocks(as);
+        if (ret==2)
+            as->m_currentBlock = nullptr;
+    }
+*/
+
     for (Node* n: node->m_decl) {
         // Print label at end of vardecl
         if (dynamic_cast<NodeVarDecl*>(n)==nullptr) {
@@ -938,6 +950,16 @@ void ASTDispather6502::dispatch(NodeBlock *node)
     as->VarDeclEnds();
     as->PushCounter();
 
+    if (node->m_isMainBlock) {
+        int ret = node->MaintainBlocks(as);
+        if (ret==2)
+            as->m_currentBlock = nullptr;
+
+        as->m_currentBlockName="MainProgram";
+//        as->EndMemoryBlock();
+    }
+
+
  //   as->EndMemoryBlock();
     if (!blockLabel && hasLabel)
         as->Label(label);
@@ -947,12 +969,19 @@ void ASTDispather6502::dispatch(NodeBlock *node)
     if (node->m_isMainBlock && Syntax::s.m_currentSystem->m_system == AbstractSystem::NES)
         as->IncludeFile(":resources/code/nes_init.asm");
 
+
     if (node->m_compoundStatement!=nullptr)
         node->m_compoundStatement->Accept(this);
 
     as->PopBlock(node->m_currentLineNumber);
-    if (node->m_isMainBlock && Syntax::s.m_currentSystem->m_system == AbstractSystem::NES)
+    if (node->m_isMainBlock && Syntax::s.m_currentSystem->m_system == AbstractSystem::NES) {
+        as->StartMemoryBlock("$FFFA");
         as->IncludeFile(":resources/code/nes_end.asm");
+        as->EndMemoryBlock();
+    }
+    if (node->m_isMainBlock)
+        as->Label("EndSymbol");
+
 
     node->PopZeroPointers(as);
 
@@ -974,12 +1003,16 @@ void ASTDispather6502::dispatch(NodeBlock *node)
 
 void ASTDispather6502::dispatch(NodeVarDecl *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     int ret = node->MaintainBlocks(as);
 
-    if (ret==3) node->m_curMemoryBlock=nullptr;
+    if (ret==3) node->m_curMemoryBlock = nullptr;
+//    qDebug() << "NodeVarDecl new memory block "  << ret;
+    if (node->m_curMemoryBlock!=nullptr)
+  //      qDebug() << node->m_curMemoryBlock->m_start;
     if (as->m_currentBlock!=nullptr) {
+    //    qDebug() <<as->m_currentBlock->m_pos;
         if (node->m_curMemoryBlock==nullptr) {
             bool ok;
             QString p = as->m_currentBlock->m_pos;
@@ -1033,8 +1066,8 @@ void ASTDispather6502::dispatch(NodeVarDecl *node)
     }
     else
     if (t->m_op.m_type==TokenType::INCBIN) {
-        if (node->m_curMemoryBlock!=nullptr)
-            ErrorHandler::e.Error("IncBin can not be declared within a user-defined memory block :",node->m_op.m_lineNumber);
+        if (node->m_curMemoryBlock!=nullptr && ((NodeVarType*)node->m_typeNode)->m_position!="")
+             ErrorHandler::e.Error("IncBin can not be declared within a user-defined memory block with an abslute address. :",node->m_op.m_lineNumber);
 
         IncBin(node);
     }
@@ -1052,8 +1085,14 @@ void ASTDispather6502::dispatch(NodeVarDecl *node)
     }else {
         node->m_dataSize=1;
         if (t->getValue(as).toLower()=="integer") node->m_dataSize = 2;
+        QString typeVal = t->getValue(as);
+        if (t->m_flag==1)
+            typeVal="const";
 
-        as->DeclareVariable(v->value, t->getValue(as), t->initVal);
+        as->DeclareVariable(v->value, typeVal, t->initVal);
+        // Increase by data counter IF
+        if (t->m_flag==1)
+            t->initVal = Util::numToHex(Util::NumberFromStringHex(t->initVal)+node->m_dataSize);
     }
 
     if (node->m_curMemoryBlock!=nullptr) {
@@ -1068,20 +1107,21 @@ void ASTDispather6502::IncSid(NodeVarDecl *node) {
     // Init address or load address? hmmm
 
     if (Syntax::s.m_currentSystem->m_system==AbstractSystem::NES) {
-        if (node->sid.m_loadAddress!=0x8000) {
-            Appendix app("$8000");
-            app.Append("org $8000",1);
-            app.Append("NSFfiller dc.b 0",0);
-            as->m_appendix.append(app);
+
+        if (node->sid.m_loadAddress!=0x8000 && Syntax::s.m_currentSystem->m_programStartAddress!=0x8000) {
+          Appendix* app = new Appendix("$8000");
+          app->Append("org $8000",1);
+          app->Append("NSFfiller dc.b 0",0);
+          as->m_appendix.append(app);
         }
     }
 
     QString pos = QString::number(node->sid.m_loadAddress,16);
-    Appendix app("$"+pos);
-
-    app.Append("org $" +pos,1);
+    Appendix* app = new Appendix("$"+pos);
+//    qDebug() << "INCSID DISPATCHER"<< pos;
+    app->Append("org $" +pos,1);
     //        as->Appendix(v->getValue(as),0);
-    app.Append("incbin \"" + as->m_projectDir + node->sid.m_outFile + "\"",1);
+    app->Append("incbin \"" + as->m_projectDir + node->sid.m_outFile + "\"",1);
 
     as->m_appendix.append(app);
 
@@ -1093,7 +1133,7 @@ void ASTDispather6502::IncSid(NodeVarDecl *node) {
     }
     node->m_fileSize = size;
 
-    qDebug() << "LOAD ADDRESS **** " << node->sid.m_loadAddress;
+//    qDebug() << "LOAD ADDRESS **** " << Util::numToHex(node->sid.m_loadAddress);
     as->blocks.append(new MemoryBlock(node->sid.m_loadAddress,node->sid.m_loadAddress+size, MemoryBlock::MUSIC, node->sid.m_fileName));
 
 
@@ -1120,15 +1160,15 @@ void ASTDispather6502::IncBin(NodeVarDecl *node) {
     }
     else {
         //            qDebug() << "bin: "<<v->getValue(as) << " at " << t->m_position;
-        Appendix app(t->m_position);
+        Appendix* app = new Appendix(t->m_position);
 
         Symbol* typeSymbol = as->m_symTab->Lookup(v->value, node->m_op.m_lineNumber);
         typeSymbol->m_org = Util::C64StringToInt(t->m_position);
         typeSymbol->m_size = size;
         //            qDebug() << "POS: " << typeSymbol->m_org;
-        app.Append("org " +t->m_position,1);
-        app.Append(v->value,0);
-        app.Append("incbin \"" + filename + "\"",1);
+        app->Append("org " +t->m_position,1);
+        app->Append(v->value,0);
+        app->Append("incbin \"" + filename + "\"",1);
         as->m_appendix.append(app);
         bool ok;
         int start=0;
@@ -1442,7 +1482,7 @@ bool ASTDispather6502::IsSimpleAndOr(NodeBinaryClause *node, QString labelSucces
 
 void ASTDispather6502::dispatch(NodeBinaryClause *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     //    node->accept(this);
     //    Node::Build(as);
@@ -1455,7 +1495,9 @@ void ASTDispather6502::dispatch(NodeBinaryClause *node)
     else
         if (node->m_op.m_type==TokenType::LESS || node->m_op.m_type == TokenType::GREATER ||
                 node->m_op.m_type==TokenType::EQUALS || node->m_op.m_type == TokenType::NOTEQUALS
-                || node->m_op.m_type==TokenType::LESSEQUAL || node->m_op.m_type == TokenType::GREATEREQUAL ) {
+                || node->m_op.m_type==TokenType::LESSEQUAL || node->m_op.m_type == TokenType::GREATEREQUAL )
+        {
+
             if (node->m_left->getType(as)==TokenType::INTEGER || (node->m_left->getType(as)==TokenType::POINTER && !node->m_left->isArrayIndex())) {
                 BinaryClauseInteger(node);
             }
@@ -1463,7 +1505,7 @@ void ASTDispather6502::dispatch(NodeBinaryClause *node)
                 BinaryClause(node);
         }
         else
-            ErrorHandler::e.Error("Binary clause: Unknown compare token : " + node->m_op.getType());
+            ErrorHandler::e.Error("Unknown compare type : '" + node->m_op.m_value+"'. Did you mean '=' or '>' etc?",node->m_op.m_lineNumber);
 
 }
 
@@ -1779,7 +1821,7 @@ void ASTDispather6502::LargeLoop(NodeForLoop *node, NodeVar* var, bool inclusive
 
 void ASTDispather6502::dispatch(NodeConditional *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
 
 //    as->PushCounter();
@@ -1797,6 +1839,8 @@ void ASTDispather6502::dispatch(NodeConditional *node)
     bool isSimplified = false;
     bool isOKBranchSize = true;
     NodeBinaryClause* bn = dynamic_cast<NodeBinaryClause*>(node->m_binaryClause);
+
+//    qDebug() << "TESTVERIFY BRANCH SIZE ";
     if (node->verifyBlockBranchSize(as, node->m_block)) {
         isSimplified = !bn->cannotBeSimplified(as);
     }
@@ -1881,7 +1925,7 @@ void ASTDispather6502::dispatch(NodeConditional *node)
 
 void ASTDispather6502::dispatch(NodeForLoop *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
 
     NodeAssign *nVar = dynamic_cast<NodeAssign*>(node->m_a);
@@ -1960,7 +2004,7 @@ void ASTDispather6502::LoadPointer(NodeVar *node) {
 void ASTDispather6502::dispatch(NodeVar *node)
 {
 
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
     QString  val = node->getValue(as);
     Pmm::Data::d.lineNumber = node->m_op.m_lineNumber;
@@ -2538,7 +2582,7 @@ bool ASTDispather6502::IsSimpleIncDec(NodeVar *var, NodeAssign *node) {
 
 void ASTDispather6502::dispatch(NodeAssign *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
 
 //    as->PushCounter();
 
@@ -2550,7 +2594,7 @@ void ASTDispather6502::dispatch(NodeAssign *node)
 
 void ASTDispather6502::dispatch(NodeCase *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
   //  as->PushCounter();
     bool hasElse = node->m_elseBlock!=nullptr;
     QString labelEnd = as->NewLabel("caseend");
@@ -2588,7 +2632,7 @@ void ASTDispather6502::dispatch(NodeCase *node)
 
 void ASTDispather6502::dispatch(NodeRepeatUntil *node)
 {
-    node->DispatchConstructor();
+    node->DispatchConstructor(as);
     QString lbl = as->NewLabel("repeatUntil");
     QString lblDone = as->NewLabel("repeatUntil");
     as->Label(lbl);
@@ -2635,6 +2679,16 @@ void ASTDispather6502::dispatch(NodeRepeatUntil *node)
 
 }
 
+void ASTDispather6502::dispatch(NodeComment *node)
+{
+    if (node->m_comment!="") {
+//        as->Comment("A COMMENT");
+
+        as->Comment(node->m_comment.replace("\n","\n; "));
+    }
+
+}
+
 
 
 
@@ -2648,9 +2702,9 @@ QString ASTDispather6502::AssignVariable(NodeAssign *node) {
     NodeNumber* num = (NodeNumber*)dynamic_cast<const NodeNumber*>(node->m_left);
 
     if (v==nullptr && num == nullptr)
-        ErrorHandler::e.Error("Left value not variable or memory address! ");
+        ErrorHandler::e.Error("Left value not variable or memory address! ", node->m_op.m_lineNumber);
     if (num!=nullptr && num->getType(as)!=TokenType::ADDRESS)
-        ErrorHandler::e.Error("Left value must be either variable or memory address");
+        ErrorHandler::e.Error("Left value must be either variable or memory address, not a constant.", node->m_op.m_lineNumber);
 
 //    qDebug() << TokenType::getType(num->getType(as));
 

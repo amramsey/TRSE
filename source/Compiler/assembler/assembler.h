@@ -151,9 +151,11 @@ class Assembler
 {
 public:
     QStringList m_source;
-    QVector<Appendix> m_appendix;
+    QVector<Appendix*> m_appendix;
     QVector<Appendix> m_extraBlocks;
     Appendix m_chipMem;
+
+    QString m_currentBlockName="";
 
     QVector<MemoryBlock> m_userWrittenBlocks;
     QStringList m_startInsertAssembler;
@@ -178,33 +180,11 @@ public:
     Appendix* m_currentBlock = nullptr;
     QVector<Appendix*> m_blockStack;
 
-    int m_zbyte = 0;
+    int m_zbyte = 0x80;
 
-    void StartMemoryBlock(QString pos) {
-        //EndMemoryBlock();
-//        qDebug() << "Starting emory pos: "<< pos;
-        Appendix app(pos);
-        m_appendix.append(app);
-        m_currentBlock = &m_appendix[m_appendix.count()-1];
-        m_currentBlock->Append("org "+pos,1);
-        m_blockStack.append(m_currentBlock);
-//        m_currentBlockCount = m_appendix.count()-1;
-    }
+    void StartMemoryBlock(QString pos);
 
-    void EndMemoryBlock() {
-//        qDebug() << "Trying to end memory block.. ";
-        if (m_currentBlock!=nullptr) {
-            Label("EndBlock"+QString::number(m_currentBlock->m_id));
-
-        }
-        m_currentBlock=nullptr;
-        if (m_blockStack.count()>0)
-            m_blockStack.removeLast();
-        if (m_blockStack.count()!=0) {
-            m_currentBlock = m_blockStack.last();
-           // qDebug() << "STILL STACK : " << m_blockStack.count();
-        }
-    }
+    void EndMemoryBlock();
 
     QString m_term;
     QMap<QString, Stack> m_stack;
@@ -251,14 +231,9 @@ public:
     }
     virtual bool CheckZPAvailability() {return false;}
 
-    QString getLabel(QString s) {
-        return s+m_labelStack[s].m_current;
-    }
+    QString getLabel(QString s);
 
-    QString NewLabel(QString s) {
-        m_labelStack[s].push();
-        return s+m_labelStack[s].m_current;
-    }
+    QString NewLabel(QString s);
 
     void PopLabel(QString s) {
         m_labelStack[s].pop();

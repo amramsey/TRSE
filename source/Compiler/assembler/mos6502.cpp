@@ -170,6 +170,11 @@ void AsmMOS6502::DeclareArray(QString name, QString type, int count, QStringList
     if (type.toLower()=="string")
         t = byte;
 
+     if (data.count()==0 && pos!="") {
+         Write(name + " = " + pos);
+         return;
+     }
+
 
     if (data.count()==0 && pos=="") {
         Write(name +"\t" + t + "\t ");
@@ -198,10 +203,10 @@ void AsmMOS6502::DeclareArray(QString name, QString type, int count, QStringList
                 Write(lst[i]);
         }
         else {
-            Appendix app(pos);
-            app.Append("org " + pos,1);
+            Appendix* app = new Appendix(pos);
+            app->Append("org " + pos,1);
             for (int i=0;i<lst.count();i++)
-                app.Append(lst[i],0);
+                app->Append(lst[i],0);
 
             int p = Util::NumberFromStringHex(pos);
 
@@ -223,6 +228,13 @@ void AsmMOS6502::VarDeclHeader()
 void AsmMOS6502::DeclareVariable(QString name, QString type, QString initval)
 {
     QString t = "";
+
+    if (type.toLower()=="const") {
+        Write(name + " = " + initval);
+        return;
+    }
+
+
     if (type.toLower()=="integer")
         t = word;
     if (type.toLower()=="byte") {

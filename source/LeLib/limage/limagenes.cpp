@@ -15,9 +15,7 @@ LImageNES::LImageNES(LColorList::Type t) : CharsetImage(t)
     m_charWidth = 32;
     m_charHeight = 32;
 
-    m_charCount = 512;
 
-    m_currentBank = 1;
     //m_data = new PixelChar[m_charWidth*m_charHeight];
     m_charWidthDisplay=16;
     m_charHeightDisplay=16;
@@ -37,6 +35,7 @@ LImageNES::LImageNES(LColorList::Type t) : CharsetImage(t)
     m_supports.displayForeground = true;
     m_supports.displayBank = true;
     m_supports.displayCmbColors = true;
+    m_supports.displayColors = true;
 
     m_GUIParams[btnLoadCharset] ="";
     m_GUIParams[btn1x1] = "8x8";
@@ -44,21 +43,26 @@ LImageNES::LImageNES(LColorList::Type t) : CharsetImage(t)
     m_GUIParams[btn2x2repeat] = "16x16 tiled";
     m_GUIParams[btnCopy] = "Copy";
     m_GUIParams[btnPaste] = "Paste";
-    m_GUIParams[btnFlipH] = "Flip H";
-    m_GUIParams[btnFlipV] = "Flip V";
+    m_GUIParams[btnFlipH] = "Mirror X";
+    m_GUIParams[btnFlipV] = "Mirror Y";
 
     m_GUIParams[tabCharset] = "Charset";
     m_GUIParams[tabData] = "";
     m_GUIParams[tabLevels] = "";
     m_GUIParams[tabEffects] = "Effects";
 
-    m_GUIParams[btnEditFullCharset] = "";
+    m_GUIParams[btnEditFullCharset] = "Char";
 
     m_exportParams["StartX"] = 0;
     m_exportParams["EndX"] = m_charWidth;
     m_exportParams["StartY"] = 0;
     m_exportParams["EndY"] = m_charHeight;
     m_exportParams["Compression"] = 0;
+
+    m_GUIParams[col1] = "Background";
+    m_GUIParams[col2] = "Color 1";
+    m_GUIParams[col3] = "Color 2";
+    m_GUIParams[col4] = "Color 3";
 
 
     for (int i=0;i<4;i++)
@@ -110,6 +114,11 @@ void LImageNES::ExportBin(QFile &file)
     wf.write(ba);
     wf.close();
 
+    QByteArray d2;
+    d2.append(data);
+    d2.append(ba);
+    Util::SaveByteArray(d2,f.split(".")[0] + ".chr");
+
 }
 
 void LImageNES::setMultiColor(bool doSet)
@@ -136,6 +145,18 @@ void LImageNES::SaveBin(QFile &file)
 
 }
 
+
+bool LImageNES::KeyPress(QKeyEvent *e)
+{
+    CharsetImage::KeyPress(e);
+
+    if (e->key()==Qt::Key_0 ) { Data::data.currentColor = m_cols[3];}
+    if (e->key()==Qt::Key_1 ) { Data::data.currentColor = m_cols[0];}
+    if (e->key()==Qt::Key_2 ) { Data::data.currentColor = m_cols[1];}
+    if (e->key()==Qt::Key_3 ) { Data::data.currentColor = m_cols[2];}
+    return true;
+}
+
 void LImageNES::LoadBin(QFile &file)
 {
     file.read( ( char * )( &m_data ),  m_charWidth*m_charHeight*12 );
@@ -157,7 +178,7 @@ QPixmap LImageNES::ToQPixMap(int chr)
     QImage img = QImage(sz,sz,QImage::Format_RGB32);
 //    qDebug() << (chr*8)%16;
     int xx = 0;
-    int yy = m_currentBank*16;
+    int yy = m_footer.get(LImageFooter::POS_CURRENT_BANK)*16;
 
 
     int c= 0;
@@ -170,7 +191,10 @@ QPixmap LImageNES::ToQPixMap(int chr)
     }
     xx*=8;
     yy*=8;
-//    qDebug() << xx << yy;
+    bool isDouble = m_double;
+    m_double = false;
+    int m = !m_footer.isFullscreen();
+    m_footer.set(LImageFooter::POS_DISPLAY_CHAR,0);
     for (int i=0;i<sz;i++)
         for (int j=0;j<sz;j++)
             img.setPixel(i,j,m_colorList.get(getPixel(
@@ -178,7 +202,8 @@ QPixmap LImageNES::ToQPixMap(int chr)
                                                  (int)(j/(float)sz*8)+yy)
                          ).color.rgb());
 
-
+    m_double = isDouble;
+    m_footer.set(LImageFooter::POS_DISPLAY_CHAR,m);
     return QPixmap::fromImage(img);
 
 }
@@ -189,6 +214,62 @@ void LImageNES::SetPalette(int pal)
      m_cols[2-0] = m_colorList.m_nesPPU[pal*4 +1 +1];
      m_cols[2-2] = m_colorList.m_nesPPU[pal*4 +1 +2];
      m_cols[3] = m_colorList.m_nesPPU[0];
+}
+
+bool LImageNES::getXY(QPoint& xy,QPoint& p1, QPoint& p2)
+{
+    int x = xy.x();
+    int y = xy.y();
+    if (m_double) {
+        x=x/2;
+        y=y/2;
+    }
+
+        if (m_footer.get(LImageFooter::POS_DISPLAY_CHAR)==1) {
+
+        int cx = m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_X);
+        int cy = m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_Y);
+
+        int sx = (m_currentChar%m_charWidth)*8;
+        int sy = (m_currentChar/m_charWidth)*16;
+
+        if (!m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_REPEAT)) {
+            x = (x / (float)m_width)*16*cx+sx;
+            y = (y / (float)m_height)*16*cy+sy;
+        }
+        else
+        {
+            x = (int)(x / ((float)m_width)*3*16*cx)%(8*cx)+sx;
+            y = (int)(y / ((float)m_height)*3*16*cy)%(8*cy)+sy;
+
+        }
+    }
+
+
+    int r = x/(float)8;
+    x=x+r*8;
+    if (m_double)
+        y=y+128*m_footer.get(LImageFooter::POS_CURRENT_BANK);
+
+//    m_pc1 = &getPixelChar((x/2),y);
+  //  m_pc2 = &getPixelChar((x/2)+4,y);
+
+    p1 = QPoint(x/2,y);
+    p2 = QPoint((x/2)+4,y);
+
+
+    int ix = x %8;//- (dx*m_charWidth);
+    int iy = y % 8;//- (dy*m_charHeight);
+
+    x = ix;
+    y = iy;
+
+    if (x<0 || x>=16 || y<0 || y>=8)
+        return false;
+
+
+    xy = QPoint(x,y);
+    return true;
 }
 
 QString LImageNES::getMetaInfo() {
@@ -207,33 +288,16 @@ unsigned int LImageNES::getPixel(int x, int y)
     if (x>=m_width || x<0 || y>=m_height || y<0)
         return m_cols[0];
 
-    if (m_double) {
-        x=x/2;
-        y=y/2;
-    }
+    QPoint xy = QPoint(x,y);
 
+    QPoint p1, p2;
+    if (!getXY(xy, p1, p2))
+        return m_cols[0];
 
+    PixelChar& m_pc1 = getPixelChar(p1.x(), p1.y());
+    PixelChar& m_pc2 = getPixelChar(p2.x(), p2.y());
 
-
-    int r = x/(float)8;
-    x=x+r*8;
-    if (m_double)
-        y=y+128*m_currentBank;
-
-    PixelChar& pc1 = getPixelChar((x/2),y);
-    PixelChar& pc2 = getPixelChar((x/2)+4,y);
-
-    int ix = x %8;//- (dx*m_charWidth);
-    int iy = y % 8;//- (dy*m_charHeight);
-
-    x = ix;
-    y = iy;
-
-    if (x<0 || x>=16 || y<0 || y>=8)
-        return 0;
-
-
-    unsigned char pp = 3-((((pc1.p[y])>>x) & 0b1) | (((pc2.p[y])>>x) & 0b1)*2);
+    unsigned char pp = 3-((((m_pc1.p[xy.y()])>>xy.x()) & 0b1) | (((m_pc2.p[xy.y()])>>xy.x()) & 0b1)*2);
 
     return m_cols[pp];
 
@@ -247,41 +311,24 @@ void LImageNES::setPixel(int x, int y, unsigned int col)
     if (x>=m_width || x<0 || y>=m_height || y<0)
         return;
 
-    if (m_double) {
-        x=x/2;
-        y=y/2;
-    }
+    QPoint xy = QPoint(x,y);
 
-    int r = x/(float)8;
-    x=x+r*8;
-    if (m_double)
-        y=y+128*m_currentBank;
-    PixelChar& pc1 = getPixelChar((x/2),y);
-    PixelChar& pc2 = getPixelChar((x/2)+4,y);
-
-    int ix = x %8;//- (dx*m_charWidth);
-    int iy = y % 8;//- (dy*m_charHeight);
-
-    x = ix;
-    y = iy;
-
-    if (x<0 || x>=16 || y<0 || y>=8)
+    QPoint p1, p2;
+    if (!getXY(xy, p1, p2))
         return;
 
-//    if (rand()%100>98)
-  //  qDebug() << col;
-
-    //unsigned char pp = (((pc1.p[y])>>x) & 0b1) | (((pc2.p[y])>>x) & 0b1)*2;
+    PixelChar& m_pc1 = getPixelChar(p1.x(), p1.y());
+    PixelChar& m_pc2 = getPixelChar(p2.x(), p2.y());
 
     int j=0;
     for (int i=0;i<4;i++)
         if (m_cols[i]==col)
             j=3-i;
 
-     pc1.p[y] &= ~(1<<x);
-     pc2.p[y] &= ~(1<<x);
-     pc1.p[y] |= (j&1)<<x;
-     pc2.p[y] |= ((j&3)>>1)<<x;
+     m_pc1.p[xy.y()] &= ~(1<<xy.x());
+     m_pc2.p[xy.y()] &= ~(1<<xy.x());
+     m_pc1.p[xy.y()] |= (j&1)<<xy.x();
+     m_pc2.p[xy.y()] |= ((j&3)>>1)<<xy.x();
     //return m_cols[pp];
 
 
@@ -314,6 +361,32 @@ void LImageNES::CopyFrom(LImage *img)
     LImageNES* n = dynamic_cast<LImageNES*>(img);
     for (int i=0;i<4;i++)
         m_cols[i] = n->m_cols[i];
-    m_currentBank = n->m_currentBank;
+
+    m_footer.m_data = img->m_footer.m_data;
+
+//    qDebug() << m_footer.isFullscreen() << img->m_footer.isFullscreen();
+
     CharsetImage::CopyFrom(img);
+}
+
+void LImageNES::CopySingleChar(LImage *src, int srcChar, int dstChar)
+{
+    LImageNES* other = dynamic_cast<LImageNES*>(src);
+    if (other==nullptr) {
+        qDebug() << "LImageNES::CopySingleChar only works with other NES images";
+        return;
+    }
+    PixelChar& m_s1 = other->m_data[srcChar*2];
+    PixelChar& m_s2 = other->m_data[srcChar*2+1];
+
+    PixelChar& m_d1 = m_data[dstChar*2];
+    PixelChar& m_d2 = m_data[dstChar*2+1];
+
+    qDebug() << "HERE";
+
+    for (int i=0;i<8;i++) {
+        m_d1.p[i] = m_s1.p[i];
+        m_d2.p[i] = m_s2.p[i];
+    }
+
 }

@@ -26,7 +26,7 @@
 #include <QVector>
 #include <QLayout>
 #include <QPushButton>
-
+#include "source/LeLib/util/util.h"
 
 class Toolbox
 {
@@ -35,11 +35,11 @@ public:
 
     QVector<ToolboxItem*> m_items;
     QVector<QPushButton*> m_buttons;
+    int m_windowWidth;
+    QGridLayout *m_ly;
+    void Initialize(QGridLayout* layout, int windowWidth);
 
-
-    void Initialize(QGridLayout* layout);
-
-    void BuildGUI(QGridLayout* ly);
+    void BuildGUI(QGridLayout* ly, int windowWidth);
     ToolboxItem* m_current;
 
     void handleButton(int data);

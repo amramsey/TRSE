@@ -20,6 +20,7 @@
 */
 
 #include "c64fullscreenchar.h"
+#include "source/LeLib/limage/limagenes.h"
 
 C64FullScreenChar::C64FullScreenChar(LColorList::Type t) : MultiColorImage(t)
 {
@@ -99,7 +100,7 @@ C64FullScreenChar::C64FullScreenChar(LColorList::Type t) : MultiColorImage(t)
     m_metaParams.append(new MetaParameter("screen_width","Screen width",20,2,1000));
     m_metaParams.append(new MetaParameter("screen_height","Screen height",19,2,1000));
 
-
+    EnsureSystemColours();
 }
 
 void C64FullScreenChar::SetColor(uchar col, uchar idx)
@@ -178,7 +179,7 @@ void C64FullScreenChar::fromQImage(QImage *img, LColorList &lst)
                         winner[col]++;
                     }
              }
-            m_currencChar = m_charset->FindClosestChar(pc);
+            m_currentChar = m_charset->FindClosestChar(pc);
             int w=0;
             int iw = 0;
             for (int i=0;i<winner.count();i++)
@@ -189,9 +190,9 @@ void C64FullScreenChar::fromQImage(QImage *img, LColorList &lst)
             uchar col = iw;
 
  /*           if (col==0)
-                m_currencChar = 0x20;
+                m_currentChar = 0x20;
             else
-                m_currencChar=0xA0;
+                m_currentChar=0xA0;
 */
             m_writeType=Color;
             setPixel(i*sx,j*sy,col);
@@ -222,12 +223,12 @@ bool C64FullScreenChar::KeyPress(QKeyEvent *e)
 
     if (e->key()==Qt::Key_C) {
         m_writeType=Character;
-        if (m_currencChar==0x20) {
-            m_currencChar = m_tempChar;
+        if (m_currentChar==0x20) {
+            m_currentChar = m_tempChar;
         }
         else {
-            m_tempChar = m_currencChar;
-            m_currencChar = 0x20;
+            m_tempChar = m_currentChar;
+            m_currentChar = 0x20;
 
         }
 
@@ -257,7 +258,7 @@ void C64FullScreenChar::setPixel(int x, int y, unsigned int color)
     y=y*m_charHeight/25.0;
 
     if (m_writeType==Character)
-        ((C64Screen*)m_items[m_current])->m_rawData[x/8+ (y/8)*m_charWidth] = m_currencChar;
+        ((C64Screen*)m_items[m_current])->m_rawData[x/8+ (y/8)*m_charWidth] = m_currentChar;
     if (m_writeType==Color)
         ((C64Screen*)m_items[m_current])->m_rawColors[x/8+ (y/8)*m_charWidth] = color;
 
@@ -270,34 +271,39 @@ unsigned int C64FullScreenChar::getPixel(int x, int y)
 {
     m_width=320;
     if (m_charset==nullptr) {
-//        qDebug() << "C64FullScreenChar::getPixel m_charset is nullptr";
         return 0;
          }
     if (x>=320 || x<0 || y>=200 || y<0)
         return 0;
 
+    int ox = x;
+    int oy = y;
     x=x*m_charWidth/40.0;
     y=y*m_charHeight/25.0;
 
     uchar v = ((C64Screen*)m_items[m_current])->m_rawData[(x/8) + (y/8)*m_charWidth];
     uchar col = ((C64Screen*)m_items[m_current])->m_rawColors[(x/8) + (y/8)*m_charWidth];
 
-//    if (rand()%100>98)
-  //      qDebug() <<QString::number(col);
 
     int ix = (x % 8);//- (dx*40);
     int iy = (y % 8);//- (dy*25);
 
- //   return pc.get(m_scale*ix, iy, m_bitMask);
+
+    if (dynamic_cast<LImageNES*>(m_charset)!=nullptr) {
+//        m_width=m_charWidth*8;
+  //      m_height = m_charHeight*8;
+        ix = ((x*2) % 16);//- (dx*40);
+        iy = ((y*2) % 16);//- (dy*25);
+
+        int xx = (v%m_charset->m_charWidthDisplay)*16;
+        int yy = (v/m_charset->m_charWidthDisplay-1)*16 + m_footer.get(LImageFooter::POS_CURRENT_BANK)*16;
+        m_charset->SetPalette(col);
+        m_charset->m_footer.set(LImageFooter::POS_DISPLAY_CHAR,0);
+        return m_charset->getPixel(xx+ix,yy+iy);
+    }
 
 
     int pos = v;
-//    return m_charset->m_data[pos].get(v + (2*x)&7, v+ y&7,m_bitMask);
-//    uchar val = m_charset->m_data[pos].get(ix, iy,m_charset->m_bitMask);
-
-//    if (rand()%100==0)
-  //  qDebug() << m_bitMask;
-
     uchar val = m_charset->m_data[pos].get(ix, iy,m_bitMask);
 
     if (m_bitMask==0b11) {
@@ -317,6 +323,7 @@ unsigned int C64FullScreenChar::getPixel(int x, int y)
 
 void C64FullScreenChar::CopyFrom(LImage *mc)
 {
+    m_footer = mc->m_footer;
     C64FullScreenChar* c = dynamic_cast<C64FullScreenChar*>(mc);
     if (c!=nullptr) {
         if (c->m_charset==nullptr)
@@ -341,7 +348,7 @@ void C64FullScreenChar::CopyFrom(LImage *mc)
 
         m_charset = c->m_charset;
         m_writeType = c->m_writeType;
-        m_currencChar = c->m_currencChar;
+        m_currentChar = c->m_currentChar;
 
     }
     else
@@ -557,6 +564,7 @@ void C64FullScreenChar::SaveBin(QFile& file)
 //        qDebug() << "Size: " << li->ToQByteArray(0).count();
         file.write(li->ToQByteArray(0));
     }
+    AppendSaveBinCharsetFilename(file);
 
 
 }
@@ -586,6 +594,7 @@ void C64FullScreenChar::LoadBin(QFile& file)
         m_items.append(s);
     }
     m_current = 0;
+    LoadBinCharsetFilename(file);
 
 
 }

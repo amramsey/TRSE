@@ -158,6 +158,7 @@ void FormRasEditor::InitDocument(WorkerThread *t, CIniFile *ini, CIniFile* pro)
     FillFromIni();
 
     setupEditor();
+
 }
 
 
@@ -174,6 +175,10 @@ void FormRasEditor::setupEditor()
 //    highlighter->Save("dark_standard.ini");
 
     UpdateFromIni();
+    ui->txtEditor->setCursorWidth(m_iniFile->getdouble("editor_cursor_width"));
+    ui->splitter->setSizes(QList<int>() << 10000 << 3500);
+//    ui->splitter->setStretchFactor(0, 10);
+  //  ui->splitter->setStretchFactor(1, 0);
 //    ui->txtEditor->setTabStopWidth(m_iniFile->getInt("tab_width") * metrics.width(' '));
 
 }
@@ -310,7 +315,10 @@ void FormRasEditor::BuildNes(QString prg)
 
     data.insert(0,header);
     int dc = data.count();
-    int j=pow(2,14)*m_projectIniFile->getdouble("nes_16k_blocks")-dc+16;
+//    int dCount = m_projectIniFile->getdouble("nes_16k_blocks");
+    //if (dc<pow(2,14))
+    int j=pow(2,14)*2-dc+16;
+//    qDebug() << "j";
     for (int i=0;i<j;i++)
         data.append((char)0);
 
@@ -450,6 +458,7 @@ void FormRasEditor::keyPressEvent(QKeyEvent *e)
         QTextCursor tc = ui->txtEditor->textCursor();
         tc.select(QTextCursor::WordUnderCursor);
         QString word = tc.selectedText();
+
 
         DialogHelp* dh = new DialogHelp(nullptr, word, m_defaultPalette);
 //        dh->setPalette(m_defaultPalette);
@@ -882,6 +891,9 @@ void FormRasEditor::HandleBuildComplete()
         emit NotifyOtherSourceFiles(m_builderThread.m_builder);
     }
 
+    highlighter->AppendSymboltable(m_builderThread.m_builder->compiler.m_parser.m_procedures.keys());
+    highlighter->rehighlight();
+//    ui->txtEditor->viewport()->update();
 
     if (m_run) {
         m_builderThread.m_builder->AddMessage("<br>Running program...");

@@ -4,7 +4,7 @@
 #
 #-------------------------------------------------
 
-QT       += core gui
+QT       += core gui opengl qml
 QT += widgets
 
 
@@ -50,6 +50,7 @@ win32-g++ {
     QMAKE_CXXFLAGS += -fopenmp
     LIBS += -fopenmp
     QMAKE_CXXFLAGS += -Ofast
+    LIBS   += -lopengl32
 
 }
 win32-msvc*{
@@ -57,6 +58,7 @@ win32-msvc*{
     LIBS += -openmp
     QMAKE_CXXFLAGS += -Ofast
     LIBS += -L$$PWD/libs/lua/ -llua
+    LIBS   += -lopengl32
 
 }
 
@@ -82,6 +84,10 @@ SOURCES += main.cpp\
     source/Compiler/ast/noderepeatuntil.cpp \
     source/Compiler/systems/systemok64.cpp \
     source/Compiler/systems/systemplus4.cpp \
+    source/ImageEditor/abstractimageeditor.cpp \
+    source/ImageEditor/glwidget.cpp \
+    source/ImageEditor/qlabellimage.cpp \
+    source/LeLib/limage/limagefooter.cpp \
     source/LeLib/limage/limagelevelnes.cpp \
     source/LeLib/limage/limagemetablocksprites.cpp \
     source/LeLib/limage/limagemetachunk.cpp \
@@ -168,7 +174,6 @@ SOURCES += main.cpp\
     source/LeLib/util/SimplexNoise.cpp \
     source/LeLib/limage/movieconverter.cpp \
     source/LeLib/limage/limagecharsetfixedcolor.cpp \
-    source/qlabellimage.cpp \
     source/trsedocuments/formpaw.cpp \
     source/dialogimagehelp.cpp \
     source/Compiler/misc/machinecodeanalyzer.cpp \
@@ -228,6 +233,10 @@ HEADERS  += mainwindow.h \
     source/Compiler/ast/noderepeatuntil.h \
     source/Compiler/systems/systemok64.h \
     source/Compiler/systems/systemplus4.h \
+    source/ImageEditor/abstractimageeditor.h \
+    source/ImageEditor/glwidget.h \
+    source/ImageEditor/qlabellimage.h \
+    source/LeLib/limage/limagefooter.h \
     source/LeLib/limage/limagelevelnes.h \
     source/LeLib/limage/limagemetablocksprites.h \
     source/LeLib/limage/limagemetachunk.h \
@@ -316,7 +325,6 @@ HEADERS  += mainwindow.h \
     source/LeLib/util/SimplexNoise.h \
     source/LeLib/limage/movieconverter.h \
     source/LeLib/limage/limagecharsetfixedcolor.h \
-    source/qlabellimage.h \
     source/trsedocuments/formpaw.h \
     source/dialogimagehelp.h \
     source/Compiler/misc/machinecodeanalyzer.h \
@@ -553,6 +561,7 @@ DISTFILES += \
     resources/text/help/m/peek.rtf \
     resources/text/help/m/playsound.rtf \
     resources/text/help/m/poke.rtf \
+    resources/text/help/m/ppupoint.rtf \
     resources/text/help/m/preventirq.rtf \
     resources/text/help/m/printdecimal.rtf \
     resources/text/help/m/printnumber.rtf \

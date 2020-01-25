@@ -42,6 +42,48 @@ LColor &LColorList::get(int i) {
     return m_black;
 }
 
+void LColorList::SetIsMulticolor(bool mult)
+{
+    m_isMulticolor = mult;
+    if (m_list.count()==0)
+        return;
+
+    for (int i=0;i<m_list.count();i++)
+        m_list[i].ignoreAltColour = false;
+
+
+
+    if (m_isMulticolor) {
+        if (m_type==LColorList::C64 || m_type==LColorList::VIC20) {
+            for (int i=0;i<8;i++) {
+                m_list[i].ignoreAltColour = true;
+            }
+            if (m_multicolors.count()>=2) {
+                if (m_multicolors[0]<m_list.count() && m_multicolors[0]>8)
+                m_list[ m_multicolors[0]&7].ignoreAltColour = false;
+            }
+            if (m_multicolors.count()>=3) {
+  //              qDebug() << m_multicolors[2];
+
+                if (m_multicolors[1]<m_list.count() && m_multicolors[1]>8)
+                m_list[ m_multicolors[1]&7].ignoreAltColour = false;
+            }
+        }
+    }
+}
+
+void LColorList::SetMulticolor(int index, int col)
+{
+    int i = index-1;
+    if (i<0) return;
+    if (i>=m_multicolors.count())
+        m_multicolors.resize(i+1);
+    m_multicolors[i] = col;
+    if (m_layout!=nullptr)
+        CreateUI(m_layout,1);
+
+}
+
 void LColorList::SetPPUColors(char c1, int idx)
 {
     m_nesPPU[1+m_curPal*4+idx] = c1;
@@ -157,7 +199,6 @@ void LColorList::EnableColors(QVector<int> &cols)
 void LColorList::GeneratePaletteFromQImage(QImage &img)
 {
     QVector<QVector3D> m_colorList;
-    qDebug() << "Building color list..";
     for (int i=0;i<10000;i++) {
             int x  = rand()%img.width();
             int y  = rand()%img.height();
@@ -301,6 +342,24 @@ void LColorList::Initialize(Type t)
 
 }
 
+QPixmap LColorList::CreateColorIcon(int col, int s)
+{
+    QImage img(s,s,QImage::Format_RGB32);
+    int c2 = col;
+    if (m_list[col].m_altColour!=-1 && (!m_list[col].ignoreAltColour))
+        c2 = m_list[col].m_altColour;
+    for (int y=0;y<s;y++)
+    for (int x=0;x<s;x++) {
+        if (s-1-y>x)
+            img.setPixelColor(x,y, m_list[col].color);
+        else
+            img.setPixelColor(x,y, m_list[c2].color);
+
+    }
+    return QPixmap::fromImage(img);
+
+}
+
 void LColorList::CopyFrom(LColorList *other)
 {
     m_list.resize(other->m_list.count());
@@ -350,7 +409,17 @@ void LColorList::InitC64()
     m_list.append(LColor(QColor(0x6c, 0x5e, 0xb5),""));
     m_list.append(LColor(QColor(0x95, 0x95, 0x95),""));
 
+
+    for (int i=0;i<8;i++)
+        m_list[i].m_altColour = i+8;
+
+
     m_background = m_list[0];
+
+}
+
+void LColorList::InitC64Multicolor()
+{
 
 }
 
@@ -385,24 +454,24 @@ void LColorList::InitVIC20()
 
     m_list.append(LColor(QColor(0x0, 0x0, 0x0),""));
     m_list.append(LColor(QColor(0xFF, 0xFF, 0xFF),""));
-    m_list.append(LColor(QColor(0x68, 0x37, 0x2b),""));
-    m_list.append(LColor(QColor(0x70, 0xa4, 0xb2),""));
-    m_list.append(LColor(QColor(0x6f, 0x3d, 0x86),""));
-    m_list.append(LColor(QColor(0x58, 0x8d, 0x43),""));
-    m_list.append(LColor(QColor(0x35, 0x28, 0x79),""));
-    m_list.append(LColor(QColor(0xb8, 0xc7, 0x6F),""));
-
-/*    m_list.append(LColor(QColor(0x0, 0x0, 0x0),""));
-    m_list.append(LColor(QColor(0xFF, 0xFF, 0xFF),""));
-    m_list.append(LColor(QColor(0x68, 0x37, 0x2b),""));
-    m_list.append(LColor(QColor(0x70, 0xa4, 0xb2),""));
-    m_list.append(LColor(QColor(0x6f, 0x3d, 0x86),""));
-    m_list.append(LColor(QColor(0x58, 0x8d, 0x43),""));
-    m_list.append(LColor(QColor(0x35, 0x28, 0x79),""));
-    m_list.append(LColor(QColor(0xb8, 0xc7, 0x6F),""));
-*/
+    m_list.append(LColor(QColor(0x78, 0x29, 0x22),""));
+    m_list.append(LColor(QColor(0x87, 0xd6, 0xdd),""));
+    m_list.append(LColor(QColor(0xaa, 0x5f, 0xb6),""));
+    m_list.append(LColor(QColor(0x55, 0xa0, 0x49),""));
+    m_list.append(LColor(QColor(0x40, 0x31, 0x8d),""));
+    m_list.append(LColor(QColor(0xbf, 0xce, 0x72),""));
+    m_list.append(LColor(QColor(0xaa, 0x74, 0x49),""));
+    m_list.append(LColor(QColor(0xea, 0xb4, 0x89),""));
+    m_list.append(LColor(QColor(0xb8, 0x69, 0x62),""));
+    m_list.append(LColor(QColor(0xc7, 0xff, 0xff),""));
+    m_list.append(LColor(QColor(0xea, 0x9f, 0xf6),""));
+    m_list.append(LColor(QColor(0x94, 0xe0, 0x89),""));
+    m_list.append(LColor(QColor(0x80, 0x71, 0xcc),""));
+    m_list.append(LColor(QColor(0xff, 0xff, 0xb2),""));
 
 
+    for (int i=0;i<8;i++)
+        m_list[i].m_altColour = i+8;
 
 
 
@@ -600,7 +669,7 @@ void LColorList::FillComboBox(QComboBox *cmb)
         QPixmap pixmap(16,16);
         pixmap.fill(m_list[i].color);
         QIcon icon(pixmap);
-        cmb->addItem(icon,"");
+        cmb->addItem(icon,Util::numToHex(i));
     }
 }
 
@@ -618,6 +687,10 @@ int LColorList::getIndex(QColor c)
 
 void LColorList::CreateUI(QLayout* ly, int type)
 {
+    if (ly==nullptr)
+        return;
+
+    m_layout = ly;
     Util::clearLayout(ly, true);
     int m=0;
     for (int i=0;i<m_list.count();i++)
@@ -636,32 +709,58 @@ void LColorList::CreateUI(QLayout* ly, int type)
     }
 //    if (m_list.count())
 
-
+    int maxy=0;
+    int cur = 0;
     for(int j=0; j<m_list.count(); j++)
     {
         if (!m_list[j].displayList)
             continue;
+
         QPushButton *b = new QPushButton();
         //b->setGeometry(0,0,40,40);
+
+
         QPalette p;
-        p.setColor(QPalette::Button, m_list[j].color);
-        p.setColor(QPalette::Window, m_list[j].color);
+//        p.setColor(QPalette::Button, m_list[j].color);
+  //      p.setColor(QPalette::Window, m_list[j].color);
         QString txtCol = QString::number(m_list[j].color.red()) + ", ";
         txtCol += QString::number(m_list[j].color.green()) + ", ";
         txtCol += QString::number(m_list[j].color.blue());
 
-        b->setStyleSheet("background-color: rgb("+txtCol + "); color: rgb(0, 0, 0)");
-        b->setPalette(p);
+
+        b->setFlat(true);
+        QPixmap pm = CreateColorIcon(j,width);
+
+
+
+
+        b->setAutoFillBackground(true);
+
+//        p.set
+        p.setBrush(b->backgroundRole(), QBrush(pm));
+
+
+//        b->setStyleSheet("background-color: rgb("+txtCol + "); color: rgb(0, 0, 0)");
+//        b->setIcon(CreateColorIcon(j,width));
         b->setMaximumWidth(width);
         b->setMinimumWidth(width);
-        b->setAutoFillBackground( true );
+        b->setMaximumHeight(width);
+        b->setMinimumHeight(width);
+        b->setPalette(p);
+        for (int k=0;k<m_multicolors.count();k++)
+            if (m_multicolors[k]==j){
+                if (k!=2)
+                    b->setText("" + QString::number(k+1));
+                else
+                    b->setText("X");
+            }
 //        b->setStyleSheet("padding: 0px;");
         if (type==0) {
             QObject::connect( b, &QPushButton::clicked,  [=](){ handleButtonImport(j);} );
 
         }
         if (type==1) {
-            QObject::connect( b, &QPushButton::clicked,  [=](){ handleButtonEdit(j);} );
+            QObject::connect( b, &QPushButton::clicked,  [=](){ handleButtonEdit(j,cur,b);} );
         }
         //QObject::connect( b, &QPushButton::clicked,  colorValueChanged );
 
@@ -675,19 +774,48 @@ void LColorList::CreateUI(QLayout* ly, int type)
 
         if (type==0)
             m_buttonsImport.append(b);
+        else
+            m_buttonsEdit.append(b);
+
+
+
+
 
         yy++;
+        cur++;
+        maxy++;
         if (yy==16) {
             yy=0;
             xx++;
+            maxy=17;
         }
     }
+/*    QGridLayout* gly = dynamic_cast<QGridLayout*>(ly);
+    if (gly!=nullptr) {
+        gly->addItem(new QSpacerItem(1,200),maxy,xx);
+    }*/
 }
 
-void LColorList::handleButtonEdit(int data)
+void LColorList::handleButtonEdit(int val, int data, QPushButton* btn)
 {
-    Data::data.currentColor = data;
+/*    for (int i=0;i<m_buttonsEdit.count();i++)
+        m_buttonsEdit[i]->setText("");
+    //if (data<m_buttonsEdit.count())
+//    qDebug() << data;
+        m_buttonsEdit[data]->setText("X");*/
+    Data::data.currentColor = val;
     Data::data.currentIsColor=true;
+    SetMulticolor(3,val);
+    QPoint p = (QCursor::pos() - btn->mapToGlobal(QPoint(0,0)));
+    QPointF fp = QPointF(p.x()/(float)btn->width(),
+            p.y()/(float)btn->height());
+//    qDebug() << (QCursor::pos() - btn->mapToGlobal(QPoint(0,0))) << btn->mapToGlobal(QPoint(0,0))  <<m_buttonsEdit[data]->cursor().pos();
+//    qDebug() <<fp;
+    // Select alternative colour
+    if (!m_list[val].ignoreAltColour)
+    if (m_list[val].m_altColour!=-1)
+        if (1-fp.y()<fp.x())
+            Data::data.currentColor = m_list[val].m_altColour;
 
 }
 

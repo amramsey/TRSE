@@ -20,6 +20,7 @@
 */
 #include "dialogprojectsettings.h"
 #include "ui_dialogprojectsettings.h"
+#include <QFileDialog>
 
 DialogProjectSettings::DialogProjectSettings(QString dir, QWidget *parent) :
     QDialog(parent),
@@ -274,5 +275,43 @@ void DialogProjectSettings::on_pushButton_clicked()
 
 void DialogProjectSettings::on_btnNESLoadCharFile_2_clicked()
 {
+
+}
+
+void DialogProjectSettings::on_btnNESLoadCharFile_clicked()
+{
+    QString filename = QFileDialog::getOpenFileName(this,
+        tr("Tile bin file"), m_ini->getString("project_path"), "*");
+    if (filename!="") {
+        filename.remove(m_currentDir);
+       ui->leNESCharFile->setText(filename);
+       m_ini->getString("nes_8k_file") = filename;
+    }
+
+}
+
+void DialogProjectSettings::on_btnDefaultZP_clicked()
+{
+    QMessageBox::StandardButton reply;
+      reply = QMessageBox::question(this, "Reset to default recommended zeropages?", "Reset zeropages to the default recommended values for this system? Any current zeropage settings will be replaced. ",
+                                    QMessageBox::Yes|QMessageBox::No);
+      if (reply == QMessageBox::No)
+          return;
+
+
+      if (m_ini->getString("system")=="VIC20") {
+          ui->leTempZP->setText("$88, $8A, $8C, $8E");
+          ui->leInternalZp1->setText("$80");
+          ui->leInternalZp2->setText("$82");
+          ui->leInternalZp3->setText("$84");
+          ui->leInternalZp4->setText("$86");
+          ui->leZeropageScreenMemory->setText("$FE");
+          ui->leDecrunchZp1->setText("$7C");
+          ui->leDecrunchZp2->setText("$7D");
+          ui->leDecrunchZp3->setText("$7E");
+          ui->leDecrunchZp4->setText("$7F");
+          ui->leZeropages->setText("$64, $66, $68, $6A, $6C, $6E, $70, $72, $74, $76, $78, $7A");
+      }
+
 
 }

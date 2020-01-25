@@ -30,34 +30,21 @@
 class CharsetImage : public MultiColorImage
 {
 public:
-    int m_charCount = 256;
     QByteArray m_rawData;
-    bool m_isMultiColor = false;
     PixelChar m_color;
     CharsetImage(LColorList::Type t);
 
     int m_skipImportBytes = 0;
-    PixelChar m_copy[64];
+//    PixelChar m_copy[64];
 
     int m_colorOrderType = 0; // C64
 
-    enum Mode{ FULL_IMAGE, CHARSET1x1, CHARSET2x2, CHARSET2x2_REPEAT};
-
-    QString GetCurrentModeString() override {
-        if (m_currentMode==CHARSET1x1) return "1x1 charset mode";
-        if (m_currentMode==CHARSET2x2) return "2x2 charset mode";
-        if (m_currentMode==CHARSET2x2_REPEAT) return "2x2 charset repeat mode";
-
-        return "Full image mode";
-    }
+    int m_displayGridKeep;
 
     int FindClosestChar(PixelChar p);
 
-    Mode m_currentMode = FULL_IMAGE;
 
-    QString GetCurrentDataString() override {
-        return "  Character : " + Util::numToHex(m_currencChar);
-    }
+    QString GetCurrentDataString() override;
 
 
     virtual QString getMetaInfo() override;
@@ -86,24 +73,30 @@ public:
     virtual QPixmap ToQPixMap(int chr);
     virtual void setPixel(int x, int y, unsigned int color) override;
 
+    void SetBank(int bnk) override;
+    QPoint getXY(int x, int y);
+
     virtual unsigned int getCharPixel(int pos, int pal, int x, int y);
 
 
     void RenderEffect(QMap<QString, float> params) override;
 
-    void CopyFrom(LImage* mc);
+    void CopyFrom(LImage* mc) override;
     bool KeyPress(QKeyEvent *e) override;
 
     void setLimitedPixel(int x, int y, unsigned int color);
 
     void onFocus() override;
 
-    void FlipHorizontal() override;
+    virtual int getCharWidthDisplay() override;
+    virtual int getCharHeightDisplay() override;
+
+/*    void FlipHorizontal() override;
     void FlipVertical() override;
 
     void CopyChar() override;
     void PasteChar() override;
-
+*/
 };
 
 #endif // CHARSETIMAGE_H

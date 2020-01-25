@@ -22,6 +22,8 @@
 #ifndef PARSER_H
 #define PARSER_H
 
+#include <QJSEngine>
+
 #include "source/Compiler/ast/ast.h"
 #include "source/Compiler/lexer.h"
 #include <QRegularExpression>
@@ -48,6 +50,8 @@
 #include "source/Compiler/ast/nodecase.h"
 #include "source/LeLib/limage/limageio.h"
 #include "source/LeLib/limage/c64fullscreenchar.h"
+
+
 class ParserBlock {
 public:
     int m_blockID;
@@ -79,6 +83,7 @@ public:
     bool m_ignoreAll = false;
     QStringList  m_initJumps;
     SymbolTable* m_symTab = nullptr;
+
     Parser();
     Parser(Lexer* l) {
         m_lexer = l;
@@ -102,6 +107,7 @@ public:
     void PreprocessIfDefs(bool ifdef);
     void PreprocessConstants();
 
+    int GetParsedIntOld();
     int GetParsedInt();
 
     int getIntVal(Token t);
@@ -125,6 +131,12 @@ public:
     Node* Term();
     Node* FindProcedure();
     Node* BinaryClause();
+
+    void AppendComment(Node* n);
+
+//    void AppendComment(Node* n);
+
+    QVector<Node*> ConstDeclaration();
     //Node* LogicalClause();
     Node* Block(bool useOwnSymTab, QString blockName="");
     QVector<Node*> Parameters(QString blockName);
@@ -141,8 +153,11 @@ public:
     Node* Constant();
     Node* InlineAssembler();
     void HandleExport();
+    void HandleVBMExport();
     void Eat();
+    void HandleImportChar();
 
+    int getParsedNumberOrConstant();
 
     int findSymbolLineNumber(QString symbol);
 

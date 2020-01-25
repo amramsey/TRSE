@@ -47,6 +47,7 @@ void WorkerThread::UpdateDrawing()
     if (Data::data.imageEvent == 0 && !m_hasLeft) {
         m_hasLeft = true;
         isPreview=false;
+
         Data::data.Redraw();
         //qDebug() << "HASLEFT " << m_time << m_currentPos;
         return;
@@ -122,10 +123,17 @@ void WorkerThread::UpdateDrawing()
         if (isPreview)
             img = (LImage*)m_work->m_currentImage->m_temp;
 
+        bool perform = true;
+
 //        pos.setX(pos.x()-0.25f);
 //        pos.setY(pos.y()-0.25f);
+        if (!(QApplication::keyboardModifiers() & Qt::ControlModifier) && perform) {
+            m_toolBox->m_current->Perform(pos.x(), pos.y(), col, img, isPreview, m_currentButton);
+            //if (dynamic_cast<Filler*>(m_toolBox->m_current)!=nullptr) {
+            //    msleep(10);
+           // }
+        }
 
-        m_toolBox->m_current->Perform(pos.x(), pos.y(), col, img, isPreview, m_currentButton);
         m_currentPosInImage = img->GetCurrentPosInImage(pos.x(), pos.y());
         Data::data.Redraw();
     }
@@ -142,24 +150,6 @@ void WorkerThread::UpdateDrawing()
 
 void WorkerThread::UpdateMousePosition()
 {
-  /*  if (m_work==nullptr)
-        return;
-    if (m_imgLabel==nullptr)
-        return;
-    if (m_work==nullptr)
-        return;
-    if (m_quit)
-        return;
-    if (m_work->m_currentImage==nullptr)
-        return;
-
-    QPointF pos = QCursor::pos() -m_imgLabel->mapToGlobal(QPoint(0,0));
-    pos.setX(pos.x()/(float)m_imgLabel->width()*m_work->m_currentImage->m_image->m_width);
-    pos.setY(pos.y()/(float)m_imgLabel->height()*m_work->m_currentImage->m_image->m_height);
-    m_prevPos = m_currentPos;
-    m_currentPos = QPoint(pos.x(), pos.y());
-*/
-//    m_prevPos = m_currentPos;
 
 }
 
@@ -174,8 +164,8 @@ void WorkerThread::UpdatePanning()
    /*         QPointF delta = (QPoint(m_work->m_currentImage->m_image->m_width,
                                     m_work->m_currentImage->m_image->m_height)/2
                                      - (m_currentPos-m_prevPos));*/
-            QPointF delta = (m_currentPos-m_prevPos);
-            m_zoomCenter-=(QPointF)delta*0.25;
+          //  QPointF delta = (m_currentPos-m_prevPos);
+            m_zoomCenter-=(QPointF)m_delta*m_zoom*m_panningScale;
             //        qDebug() << delta;
             m_isPanning = true;
             Data::data.Redraw();
@@ -192,6 +182,8 @@ void WorkerThread::UpdatePanning()
 
 void WorkerThread::UpdateImage(LImage * mc)
 {
+    QElapsedTimer ep;
+    ep.start();
    if (m_work == nullptr)
        return;
    if (mc==nullptr)
@@ -235,6 +227,7 @@ void WorkerThread::UpdateImage(LImage * mc)
 
 //    qDebug() << "Emit " << rand()%100;
     emit updateImageSignal();
+//    qDebug() << "UpdateImage : " <<ep.elapsed();
     //ui->lblImage->setPixmap(m_pixMapImage);
 }
 
@@ -287,7 +280,10 @@ void WorkerThread::Continue()
 
 void WorkerThread::CreateGrid()
 {
-    m_grid->CreateGrid(m_work->m_currentImage->m_image->m_charWidthDisplay,m_work->m_currentImage->m_image->m_charHeightDisplay,m_gridColor,2, m_zoom, QPointF(m_zoomCenter.x(), m_zoomCenter.y())*m_gridScale,m_work->m_currentImage->m_image->m_scaleX);
+    if (m_drawGrid)
+        m_grid->CreateGrid(m_work->m_currentImage->m_image->getGridWidth(),m_work->m_currentImage->m_image->getGridHeight(),m_gridColor,2, m_zoom, QPointF(m_zoomCenter.x(), m_zoomCenter.y())*m_gridScale,m_work->m_currentImage->m_image->m_scaleX);
+    else
+        m_grid->m_qImage->fill(0);
 }
 
 void WorkerThread::RunContents()
@@ -329,7 +325,7 @@ void WorkerThread::run()
             RunContents();
         }
 
-        QThread::msleep(15);
+        QThread::msleep(10);
     }
 
 }

@@ -71,6 +71,7 @@ bool Compiler::Build(AbstractSystem* system, QString project_dir)
 
     if (system->m_processor==AbstractSystem::MOS6502) {
         m_assembler = new AsmMOS6502();
+        m_assembler->m_zbyte = 0x10;
         m_dispatcher = new ASTDispather6502();
         Init6502Assembler();
     }
@@ -89,17 +90,16 @@ bool Compiler::Build(AbstractSystem* system, QString project_dir)
 
     if (m_tree!=nullptr)
         try {
-            dynamic_cast<NodeProgram*>(m_tree)->m_initJumps = m_parser.m_initJumps;
-            m_dispatcher->as = m_assembler;
-            m_tree->Accept(m_dispatcher);
+        dynamic_cast<NodeProgram*>(m_tree)->m_initJumps = m_parser.m_initJumps;
+        m_dispatcher->as = m_assembler;
+        m_tree->Accept(m_dispatcher);
 
-        } catch (FatalErrorException e) {
-            HandleError(e,"Error during build");
-            return false;
-         }
+    } catch (FatalErrorException e) {
+        HandleError(e,"Error during build");
+        return false;
+    }
 
     for (MemoryBlock* mb:m_parser.m_userBlocks) {
-
         m_assembler->blocks.append(mb);
     }
 
@@ -112,8 +112,6 @@ bool Compiler::Build(AbstractSystem* system, QString project_dir)
 
     if (system->m_processor==AbstractSystem::MOS6502) {
         m_assembler->EndMemoryBlock();
-        if (system->m_system!=AbstractSystem::NES)
-            m_assembler->Label("EndSymbol");
         m_assembler->Connect();
         if (m_ini->getdouble("post_optimize")==1.0)
             m_assembler->Optimise(*m_projectIni);

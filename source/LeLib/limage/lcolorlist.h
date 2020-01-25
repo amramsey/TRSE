@@ -53,6 +53,10 @@ public:
     QColor color;
     bool inUse = true;
     bool displayList = true;
+    bool ignoreAltColour = false;;
+
+    int m_altColour = -1;
+
   //  int currentIndex; // used for NES and other fixed-palette stuff
     QString name;
     LColor() {}
@@ -97,9 +101,11 @@ class LColorList : public QObject
     Q_OBJECT
 private:
 
+    QVector<int> m_multicolors;
 
 public:
     QVector<LColor> m_list;
+    bool m_isMulticolor = true;
 
     enum Type{ NES, C64, C64_ORG, CGA1_LOW, CGA1_HIGH, CGA2_LOW, CGA2_HIGH, UNSUPPORTED, TIFF, VIC20, PICO8,OK64,X16 };
 
@@ -113,7 +119,9 @@ public:
     LColor& get(int i);
     QColor m_cblack = QColor(0,0,0,255);
     LColor m_black = LColor(m_cblack,"black");
+    void SetIsMulticolor(bool mult);
 
+    void SetMulticolor(int index, int col);
 
     void SetPPUColors(char c1, int idx);
 
@@ -139,9 +147,12 @@ public:
 
     void Initialize(Type t);
 
+    QPixmap CreateColorIcon(int col, int s);
+
     void CopyFrom(LColorList* other);
     void InitC64_org();
     void InitC64();
+    void InitC64Multicolor();
     void InitPICO8();
     void InitVIC20();
     void InitCGA1_LOW();
@@ -163,8 +174,9 @@ public:
 
     int getIndex(QColor c);
 
-    void handleButtonEdit(int data);
+    void handleButtonEdit(int val, int data, QPushButton* btn);
 
+    QLayout* m_layout = nullptr;
     void CreateUI(QLayout* ly, int type);
 
 public slots:

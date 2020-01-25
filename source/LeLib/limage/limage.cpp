@@ -28,6 +28,10 @@
 #include <QGraphicsPixmapItem>
 #include <QPainter>
 #include <QMatrix4x4>
+#include "source/Compiler/syntax.h"
+
+uchar LImage::m_copy[1024*1024];
+bool LImage::m_hasCopy = false;
 
 LImage::LImage(LColorList::Type t)
 {
@@ -79,6 +83,54 @@ unsigned char LImage::TypeToChar(LImage::Type t)
 
 
     return 255;
+}
+
+QString LImage::TypeToString(LImage::Type t)
+{
+    if (t==QImageBitmap)
+        return "Bitmap image";
+    if (t==MultiColorBitmap)
+        return "C64 Image";
+    if (t==HiresBitmap)
+        return "C64 Image";
+    if (t==LevelEditor)
+        return "Level editor";
+    if (t==CharMapMulticolor)
+        return "Character map";
+    if (t==Sprites)
+        return "Sprites";
+    if (t==CharmapRegular)
+        return "Character map";
+    if (t==FullScreenChar)
+        return "Screen Animation";
+    if (t==CharMapMultiColorFixed)
+        return "Character map";
+    if (t==VIC20_MultiColorbitmap)
+        return "VIC Image";
+    if (t==Sprites2)
+        return "Sprites";
+    if (t==CGA)
+        return "CGA Image";
+    if (t==AMIGA320x200)
+        return "Amiga image";
+    if (t==AMIGA320x256)
+        return "Amiga image";
+    if (t==OK64_256x256)
+        return "OK64 image";
+    if (t==X16_640x480)
+        return "X16 image";
+    if (t==NES)
+        return "NES character map";
+    if (t==LMetaChunk)
+        return "Meta tiles";
+    if (t==LevelEditorNES)
+        return "NES level editor";
+    if (t==SpritesNES)
+        return "NES sprites";
+
+    return "Unknown image type";
+
+
 }
 
 LImage::Type LImage::CharToType(unsigned char c)
@@ -135,6 +187,24 @@ MetaParameter *LImage::getMetaParameter(QString name)
             return mp;
 
     return nullptr;
+}
+
+int LImage::getCharWidthDisplay()
+{
+    return m_charWidthDisplay;
+}
+
+int LImage::getCharHeightDisplay()
+{
+    return m_charHeightDisplay;
+}
+
+QString LImage::GetCurrentModeString() {
+/*    if (m_currentMode==CHARSET1x1) return "1x1 charset mode";
+    if (m_currentMode==CHARSET2x2) return "2x2 charset mode";
+    if (m_currentMode==CHARSET2x2_REPEAT) return "2x2 charset repeat mode";
+*/
+    return "";
 }
 
 void LImage::FloydSteinbergDither(QImage &img, LColorList &colors, bool dither)
@@ -198,6 +268,106 @@ void LImage::OrdererdDither(QImage &img, LColorList &colors, QVector3D strength,
 
 }
 
+void LImage::CopyChar()
+{
+
+ //   m_copySize = 1;
+/*    if (m_footer.isFullscreen()) {
+        m_copySize = QPoint(m_width,m_height);
+    }
+    else {
+        m_copySize = QPoint(m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_X)*8,
+                            m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_Y)*8);
+    }
+*/
+//   m_copySize = QPoint(m_width,m_height);
+//    qDebug() << m_copySize << m_width << m_height;
+   m_copySize = QPoint(m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_X)*32,
+                       m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_Y)*32);
+
+//   m_copySize = QPoint(256,256);
+    for (int y=0;y<m_copySize.y();y++)
+        for (int x=0;x<m_copySize.x();x++) {
+            m_copy[x+y*m_copySize.x()] = getPixel((float)x/(float)m_copySize.x()*(float)m_width,
+                                                  (float)y/(float)m_copySize.y()*(float)m_height);
+        }
+    m_hasCopy = true;
+
+}
+
+void LImage::PasteChar()
+{
+    if (!m_hasCopy)
+        return;
+    for (int y=0;y<m_copySize.y();y++)
+        for (int x=0;x<m_copySize.x();x++) {
+            setPixel(x/(float)m_copySize.x()*m_width,y/(float)m_copySize.y()*m_height,m_copy[x+y*m_copySize.x()]);
+        }
+}
+
+void LImage::FlipHorizontal() {
+    CopyChar();
+    for (int y=0;y<m_copySize.y();y++)
+        for (int x=0;x<m_copySize.x();x++) {
+            setPixel((float)(x+0.2)/(float)m_copySize.x()*(float)m_width,
+                     (float)(y+0.2)/(float)m_copySize.y()*(float)m_height,
+                     m_copy[m_copySize.x()-1-x+y*m_copySize.x()]);
+        }
+
+}
+
+void LImage::FlipVertical() {
+    CopyChar();
+    for (int y=0;y<m_copySize.y();y++)
+        for (int x=0;x<m_copySize.x();x++) {
+            setPixel((float)(x*m_width)/(float)m_copySize.x(),
+                     ((float)(m_copySize.y()-1-y)*m_height/(float)m_copySize.y()),
+                     m_copy[x+y*m_copySize.x()]);
+        }
+
+
+
+}
+
+void LImage::Clear() {
+    for (int y=0;y<m_height;y++)
+        for (int x=0;x<m_width;x++) {
+            setPixel(x,y,0);
+        }
+
+}
+
+
+void LImage::ShiftXY(int dx, int dy)
+{
+    CopyChar();
+   // qDebug() <<m_copySize;
+
+    dx*=m_bitMask==0b11?2:1;
+
+    if (!m_footer.isFullscreen()) {
+        int sx = m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_X)*8;
+        int sy = m_footer.get(LImageFooter::POS_CURRENT_DISPLAY_Y)*8;
+
+  //      if (dx!=0)
+            dx = dx*(float)m_width/(float)sx;
+            if (dx>0) dx+=1;
+            dy = dy*(float)m_height/(float)sy;
+            if (dy>0) dy+=1;
+
+    }
+//    qDebug() << dx << dy << m_copySize << m_width << m_height;
+    for (int y=0;y<m_copySize.y();y++)
+        for (int x=0;x<m_copySize.x();x++) {
+            setPixel((int)((x/(float)m_copySize.x()*(float)m_width)+dx+m_width)%m_width ,
+                     (int)(((y)/(float)m_copySize.y()*(float)m_height)+dy+m_height)%m_height,
+
+                     m_copy[x+y*m_copySize.x()]);
+        }
+
+}
+
+
 void LImage::Rotate(QPoint center, float angle, float scale, LImage* img)
 {
     for (int i=0;i<m_width;i++)
@@ -252,5 +422,25 @@ void LImage::CopyFrom(LImage *img) {
         qDebug() << "LImage copyfrom  count : " <<img->m_colorList.m_list.count();
     }
     */
+}
+
+
+void LImage::EnsureSystemColours()
+{
+    if (Syntax::s.m_currentSystem->m_system==AbstractSystem::VIC20) {
+        m_colorList.InitVIC20();
+        m_colorList.m_type = LColorList::VIC20;
+
+    }
+    if (Syntax::s.m_currentSystem->m_system==AbstractSystem::C64)
+        m_colorList.InitC64();
+    if (Syntax::s.m_currentSystem->m_system==AbstractSystem::NES) {
+        m_colorList.InitNES();
+        m_colorList.m_type = LColorList::NES;
+        m_supports.nesPalette = true;
+        m_supports.displayBank = true;
+
+    }
+
 }
 

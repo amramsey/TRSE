@@ -25,9 +25,8 @@
 
 LImageSprites::LImageSprites(LColorList::Type t) : CharsetImage(t) {
     m_type = LImage::Type::Sprites;
-    m_charCount = 1024;
-    m_currentMode = Mode::CHARSET1x1;
-    m_currencChar=0;
+    //m_currentMode = Mode::CHARSET1x1;
+    m_currentChar=0;
 
     m_GUIParams[btnLoadCharset] ="";
     m_GUIParams[btn1x1] = "1x1 Sprite";
@@ -35,8 +34,8 @@ LImageSprites::LImageSprites(LColorList::Type t) : CharsetImage(t) {
     m_GUIParams[btn2x2repeat] = "";
     m_GUIParams[btnCopy] = "Copy";
     m_GUIParams[btnPaste] = "Paste";
-    m_GUIParams[btnFlipH] = "Flip Horizontal";
-    m_GUIParams[btnFlipV] = "Flip Vertical";
+    m_GUIParams[btnFlipH] = "Mirror X";
+    m_GUIParams[btnFlipV] = "Mirror Y";
     m_GUIParams[btnEditFullCharset] = "";
 
 
@@ -139,13 +138,13 @@ void LImageSprites::ToRaw(QByteArray &arr)
 QPoint LImageSprites::getXY(int x, int y)
 {
     int xx,yy, shiftx, shifty,i,j;
-
+/*
     if (m_currentMode!=CHARSET2x2) {
 
 
-        shiftx = ((m_currencChar%40)*4)%320;
+        shiftx = ((m_currentChar%40)*4)%320;
 
-        shifty = ((int)((m_currencChar-m_currencChar%40)/(int)40))*8;
+        shifty = ((int)((m_currentChar-m_currentChar%40)/(int)40))*8;
 
         i = x/320.0*24;
         j = y/200.0*21;
@@ -157,8 +156,8 @@ QPoint LImageSprites::getXY(int x, int y)
     {
 
 
-        shiftx = ((m_currencChar%40)*4)%320;
-        shifty = ((int)((m_currencChar-m_currencChar%40)/(int)40))*8;
+        shiftx = ((m_currentChar%40)*4)%320;
+        shifty = ((int)((m_currentChar-m_currentChar%40)/(int)40))*8;
 
         i = x/320.0*24*3;
         j = y/200.0*21*2;
@@ -178,7 +177,7 @@ QPoint LImageSprites::getXY(int x, int y)
     if (m_currentMode==CHARSET2x2)
     if (yy>=21) yy+=3;
 
-
+*/
     return QPoint(xx,yy);
 
 }
@@ -192,16 +191,16 @@ bool LImageSprites::KeyPress(QKeyEvent *e)
 
 
 
-    if (e->key()==Qt::Key_W && m_currencChar>=40*s)
-        m_currencChar-=40*s;
-    if (e->key()==Qt::Key_A && m_currencChar>=s)
-        m_currencChar-=1*s;
+    if (e->key()==Qt::Key_W && m_currentChar>=40*s)
+        m_currentChar-=40*s;
+    if (e->key()==Qt::Key_A && m_currentChar>=s)
+        m_currentChar-=1*s;
     if (e->key()==Qt::Key_S)
-        m_currencChar+=40*s;
+        m_currentChar+=40*s;
     if (e->key()==Qt::Key_D)
-        m_currencChar+=1*s;
+        m_currentChar+=1*s;
 
-    m_currencChar = Util::clamp(m_currencChar,0,m_charCount);
+    m_currentChar = Util::clamp(m_currentChar,0,m_charWidth*m_charHeight);
 
     return true;
 
@@ -224,7 +223,7 @@ unsigned int LImageSprites::getPixel(int x, int y)
 
 void LImageSprites::FlipVertical()
 {
-    if (m_currentMode==CHARSET2x2)
+    /*if (m_currentMode==CHARSET2x2)
         return;
 
 
@@ -239,12 +238,13 @@ void LImageSprites::FlipVertical()
     for (int y=0;y<21;y++)
       for (int x=0;x<23;x++)
             setPixel( x*i+8 ,y*j+8, tmp[24*y + 23-x]);
-
+*/
 
 }
 
 void LImageSprites::FlipHorizontal()
 {
+    /*
     if (m_currentMode==CHARSET2x2)
         return;
 
@@ -260,14 +260,14 @@ void LImageSprites::FlipHorizontal()
     for (int y=0;y<21;y++)
       for (int x=0;x<24;x++)
             setPixel( x*i ,y*j+8, tmp[24*(20-y) +x]);
-
+*/
 
 }
 
 void LImageSprites::CopyPasteChar(int type)
 {
     //if (m_currentMode==CHARSET1x1)
-    int max=1;
+  /*  int max=1;
     if (m_currentMode==CHARSET2x2) max = 6;
     int x=0;
     int k0 = 0;
@@ -279,9 +279,9 @@ void LImageSprites::CopyPasteChar(int type)
         int add=k;
         for (int i=0;i<9;i++) {
             if (type==0)
-            m_copy[x]=m_data[m_currencChar+add];
+            m_copy[x]=m_data[m_currentChar+add];
             if (type==1)
-            m_data[m_currencChar+add]=m_copy[x];
+            m_data[m_currentChar+add]=m_copy[x];
 
             x++;
             j++;
@@ -301,10 +301,10 @@ void LImageSprites::CopyPasteChar(int type)
         }
 
     }
-
+*/
 }
 
-
+/*
 void LImageSprites::CopyChar()
 {
     CopyPasteChar(0);
@@ -315,3 +315,4 @@ void LImageSprites::PasteChar()
     CopyPasteChar(1);
 
 }
+*/

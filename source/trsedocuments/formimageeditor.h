@@ -38,16 +38,31 @@
 #include "source/LeLib/util/util.h"
 #include "source/LeLib/limage/limageeffects.h"
 #include "source/dialogimagehelp.h"
-#include "source/qlabellimage.h"
+#include "source/ImageEditor/qlabellimage.h"
 #include "source/LeLib/limage/limagefactory.h"
 #include "source/LeLib/limage/limagecontainer.h"
 #include "source/dialogcolors.h"
-
+#include "source/ImageEditor/glwidget.h"
 #include <QLineEdit>
+#include <QItemDelegate>
 namespace Ui {
 class Formimageeditor;
 }
 
+
+class ByteDelegate : public QItemDelegate
+{
+public:
+    QWidget* createEditor(QWidget *parent, const QStyleOptionViewItem & option,
+                      const QModelIndex & index) const
+    {
+        QLineEdit *lineEdit = new QLineEdit(parent);
+        // Set validator
+        QIntValidator *validator = new QIntValidator(0, 255, lineEdit);
+        lineEdit->setValidator(validator);
+        return lineEdit;
+    }
+};
 
 
 class FormImageEditor :  public TRSEDocument
@@ -69,14 +84,36 @@ public:
     LImageEffect* m_currentImageEffect = nullptr;
     QString m_projectPath;
     QVector<int> m_keepSpriteChar;
+    QString m_currentFilename = "";
+
+    enum PainterType {OpenGL, QtPaint };
+    PainterType m_painterType = OpenGL;
+    bool m_isInitialized = false;
+
+    int m_oldWidth = 600;
+
+    int m_prefMode=1, m_keepMode=0;
+//    CharsetImage::Mode m_prefMode = CharsetImage::Mode::CHARSET1x1;
+//    CharsetImage::Mode m_keepMode = CharsetImage::Mode::CHARSET1x1;
 
     void UpdatePalette();
     void updateCharSet();
     void updateSingleCharSet();
+    void InitQtPainter();
 
     void PrepareImageTypeGUI();
 
+    void SetSingleCharsetEdit();
+
+    void SetFooterData(int pos, uchar val);
+    uchar GetFooterData(int pos);
+
+
+
+    void UpdateCurrentCell();
+
     void SetButton(QPushButton* btn, LImage::GUIType type);
+    void SetLabel(QLabel* btn, LImage::GUIType type);
 
     void PrepareClose() override;
 
@@ -89,16 +126,18 @@ public:
     void OpenSelectCharset();
     void Reload() override;
 
+    bool eventFilter(QObject *ob, QEvent *e) override;
 
     void resizeEvent(QResizeEvent *event) override;
 
-    void mouseMoveEvent(QMouseEvent* e) override;
-    void mousePressEvent(QMouseEvent *e) override;
-    void mouseReleaseEvent(QMouseEvent *e) override;
+    void SelectFromLeftClick();
+
     void wheelEvent(QWheelEvent *event) override;
     void keyPressEvent(QKeyEvent* e) override;
     void keyReleaseEvent(QKeyEvent *e) override;
     void UpdateImage();
+
+    void UpdateButtonIcons();
 
     void UpdateGrid();
 
@@ -110,7 +149,7 @@ public:
 
     Ui::Formimageeditor *getUi() const;
 
-    QLabel* getLabelImage();
+//    GLWidget* getLabelImage();
 
     void UpdateCurrentMode();
 
@@ -122,19 +161,31 @@ public:
 
     void UpdateSpriteImages();
 
+    void UpdateAspect();
+
+    void Update();
+
 /*signals:
     void EmitMouseEvent();
 */
 private:
     Ui::Formimageeditor *ui;
+    QWidget* getCurrentPainter();
 
 private slots:
-
+    void UpdateMulticolorImageSettings();
+    void InitAspect();
+    void onSwapDisplayMode();
     void onImageMouseEvent();
+    void onImageMouseReleaseEvent();
 
-    void on_btnExportAsm_clicked();
+//    void on_btnExportAsm_clicked();
 
     void on_btnGenerate_clicked();
+
+    void showDetailCharButtons();
+
+
 
     void on_btnFlipVert_clicked();
     void on_btnFlipHorisontal_clicked();
@@ -158,15 +209,11 @@ private slots:
 
     void on_btnExportImage_clicked();
 
-    void on_lstImages_clicked(const QModelIndex &index);
 
 
     void on_btnImport_clicked();
 
     void on_btnCharsetFull_clicked();
-    void on_btnCharset1x1_clicked();
-    void on_btnCharset2x2_clicked();
-    void on_btnCharset2x2Repeat_clicked();
     void on_btnCharsetCopy_clicked();
     void on_btnCharsetPaste_clicked();
 
@@ -200,7 +247,6 @@ private slots:
 
     void on_chkDisplayMulticolor_stateChanged(int arg1);
     void on_leHeaders_editingFinished();
-    void on_tblData_cellChanged(int row, int column);
 
     void on_btnHelpImage_clicked();
 
@@ -212,10 +258,7 @@ private slots:
     void on_btnPasteSprite_clicked();
     void on_btnFlipXSprite_clicked();
     void on_btnFlipYSprite_clicked();
-    void on_sliderX_actionTriggered(int action);
-    void on_btnPanLeft_clicked();
     void on_btnPanRight_clicked();
-    void on_btnPanUp_clicked();
     void on_btnPanDown_clicked();
     void on_lblSprite1_clicked();
     void on_lblSprite3_clicked();
@@ -236,6 +279,17 @@ private slots:
     void on_cmbBank_currentIndexChanged(int index);
     void on_cmbNesPalette_activated(int index);
     void on_btnCharSelect_clicked();
+    void on_cmbAspect_currentIndexChanged(int index);
+    void on_chkPaintSeparately_stateChanged(int arg1);
+    void on_pushButton_clicked();
+    void on_cmbCharX_currentIndexChanged(int index);
+    void on_cmbCharY_currentIndexChanged(int index);
+    void on_btnRepeating_clicked();
+    void on_btnShiftLeft_clicked();
+    void on_btnShiftRight_clicked();
+    void on_btnShiftDown_clicked();
+    void on_btnShiftUp_clicked();
+    void on_btnClear_clicked();
 };
 
 

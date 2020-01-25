@@ -61,24 +61,9 @@ public:
 
     int CompareLength(PixelChar& other);
 
-    int CompareLength2(PixelChar& other) {
-        int l = 0;
-        for (int i=0;i<8;i++)
-            for (int j=0;j<8;j++) {
-                char a = (p[i]>>(j))&0b1;
-                char b = (other.p[i]>>(j))&0b1;
-                if ( a != b )
-                    l++;
-                if (a==0 && b!=0) l++;
-                if (b==0 && a!=0) l++;
+    int CompareLength2(PixelChar& other);
 
-            }
-//            if (other.p[i]!=p[i])
-  //          l+=other.p[i] != p[i];
-
-        return l;
-
-    }
+    int CompareLength3(PixelChar& other);
 
     static uchar SwapColor(uchar data, uchar c1, uchar c2);
 
@@ -137,7 +122,7 @@ public:
     PixelChar m_data[40*25*2];
  //   QVector<PixelChar> m_data;
     PixelChar& getPixelChar(int x, int y);
-    virtual void Clear() override;
+//    virtual void Clear() override;
 
     int LookUp(PixelChar pc);
     QString m_charsetFilename ="";
@@ -147,7 +132,10 @@ public:
     void ForceBackgroundColor(int col, int swapCol);
 
 
+    void AppendSaveBinCharsetFilename(QFile& file);
+    void LoadBinCharsetFilename(QFile& file);
 
+    void SwapChars(int p1, int p2);
 
 
     void CalculateCharIndices();
@@ -155,6 +143,9 @@ public:
     void SaveCharRascal(QString file, QString name);
     void LoadCharset(QString file, int skipBttes) override;
     bool isMultiColor() override { return m_bitMask==0b11; }
+
+    virtual int getCharAtPos(QPoint p, float zoom, QPointF center) override;
+
 
     void onFocus() override;
 
@@ -164,7 +155,7 @@ public:
     unsigned int getPixel(int x, int y) override;
 
     void Reorganize();
-    bool KeyPress(QKeyEvent *e) override;
+    virtual bool KeyPress(QKeyEvent *e) override;
 
     void SaveBin(QFile& f) override;
     void LoadBin(QFile& f) override;
@@ -205,6 +196,7 @@ public:
     void ExportBin(QFile& file) override;
     void ForceExportBin(QFile& file);
     void ImportBin(QFile& file) override;
+    void VBMExport(QFile& file, int p1, int p2, int p3) override;
 
     void SetCharSize(int x, int y);
 

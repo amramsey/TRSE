@@ -66,7 +66,7 @@ void DialogImport::Initialize(LImage::Type imageType, LColorList::Type colorType
     if (sprite!=nullptr) {
         m_image->CopyFrom(sprite);
 //        qDebug() << QString::number(sprite->m_items[sprite->m_current].m_header[0]);
-//        qDebug() << "BLOCKS: " << sprite->m_sprites[sprite->m_currencChar].m_blocksWidth;
+//        qDebug() << "BLOCKS: " << sprite->m_sprites[sprite->m_currentChar].m_blocksWidth;
     }
 
     C64FullScreenChar* petscii = dynamic_cast<C64FullScreenChar*>(img);
@@ -128,7 +128,8 @@ void DialogImport::Convert()
 
     CharsetImage* chr = dynamic_cast<CharsetImage*>(m_image);
     if (chr!=nullptr) {
-        chr->m_currentMode=CharsetImage::Mode::FULL_IMAGE;
+        //chr->m_currentMode=CharsetImage::Mode::FULL_IMAGE;
+        chr->m_footer.set(LImageFooter::POS_DISPLAY_CHAR,0);
         chr->SetColor(0,0);
         chr->SetColor(1,1);
 //        chr->set

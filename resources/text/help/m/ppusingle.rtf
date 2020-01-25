@@ -1,0 +1,16 @@
+<h3>PPUSingle( [ hi ], [ lo ], [ value ])</h3>
+PPUSingle writes a single byte to the memory address specified by the two first bytes.
+<code>
+
+    // Write a single byte "0" to memory address $23C0 (color attribute)
+    PPUSingle($23,$C0, 0);
+
+    // Same is...
+
+    // Point to first colour attribute in first nametable $23C0
+    PPUPoint($23,$C0);
+    // Write walue zero = four tiles use tile palette 0
+    PPUWrite(0);
+
+
+</code>
